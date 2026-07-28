@@ -46,12 +46,13 @@ select.filter{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(-
 </style></head><body>
 <header><div><div class="t">Unplugged · Guest Ops Live Dashboard</div><div class="sub">Today's rhythm · react ✅ in Slack to complete</div></div>
 <div class="clock"><div class="time" id="clk">--:--</div><div class="day" id="dow">UK</div></div></header>
-<nav><button data-v="today" class="active">Today</button><button data-v="cov">Changeover forms</button><button data-v="log">Activity log</button><button data-v="res">Resources</button><button data-v="all">All tasks</button></nav>
+<nav><button data-v="today" class="active">Today</button><button data-v="cov">Changeover forms</button><button data-v="log">Activity log</button><button data-v="history">History</button><button data-v="res">Resources</button><button data-v="all">All tasks</button></nav>
 <main>
 <section id="v-today"><h2 id="today-h">Today</h2><div class="bar"><span id="prog"></span></div><div class="count" id="progc"></div>
 <div id="due"></div><h2>Later today</h2><div id="later"></div><h2>Ongoing</h2><div id="ongoing"></div></section>
 <section id="v-log" class="hide"><h2>Activity log — what's been actioned</h2><div class="count">Every ✅ reaction in #guest-ops-dashboard, newest first.</div><div id="logbox"><div class="spin">Loading…</div></div></section>
 <section id="v-cov" class="hide"><h2>Changeover forms — today</h2><div class="count">Cabins with a changeover today vs cleaner feedback forms received. Overdue after 3pm UK.</div><div id="cov-cards" class="cards"></div><h2>Chase list</h2><div id="cov-chase"><div class="spin">Loading…</div></div></section>
+<section id="v-history" class="hide"><h2>History &amp; trends</h2><div class="count">Built from the ✅ log since tracking began (today is excluded until it's a full day). Counts the ✅-tracked reminder tasks.</div><div id="hist-cards" class="cards"></div><h2>Most-missed tasks</h2><div id="hist-box"><div class="spin">Loading…</div></div><h2>By day of week</h2><div id="hist-dow"></div><h2>Recent days</h2><div id="hist-recent"></div></section>
 <section id="v-res" class="hide"><h2>Resource hub</h2><div class="hint" id="res-missing"></div><div id="res-list"></div></section>
 <section id="v-all" class="hide"><h2>All tasks</h2><div><select class="filter" id="f-cat"><option value="">All categories</option></select><select class="filter" id="f-freq"><option value="">All frequencies</option></select></div><div style="overflow:auto"><table id="alltbl"></table></div></section>
 </main>
@@ -123,7 +124,31 @@ const chase=rows.filter(r=>{const st=(r.status||r.Status||'').toUpperCase();retu
 if(!chase.length){box.innerHTML='<div class="hint">All changeover forms are in. \ud83c\udf89</div>';return;}
 chase.sort((a,b)=>((a.status||'')<(b.status||'')?-1:1));
 let h='<table><tr><th>Cabin</th><th>Status</th><th>Submitted</th></tr>';chase.forEach(r=>{const st=(r.status||r.Status||'').toUpperCase();h+='<tr><td><b>'+(r.cabin||r.Cabin)+'</b></td><td style="color:'+(st==='OVERDUE'?'#b5442e':'#c77b2b')+';font-weight:'+(st==='OVERDUE'?700:600)+'">'+st+(st==='OVERDUE'?' \u26a0':'')+'</td><td>'+(r.submitted_at||r['submitted_at']||'')+'</td></tr>';});h+='</table>';box.innerHTML=h;}
-document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['today','cov','log','res','all'].forEach(v=>document.getElementById('v-'+v).classList.add('hide'));document.getElementById('v-'+b.dataset.v).classList.remove('hide');const v=b.dataset.v;if(v==='cov')loadCov();if(v==='log')renderLog();if(v==='res')renderRes();if(v==='all')renderAll();}));
+function completionsByDate(rows){var byDate={};rows.forEach(function(r){var date=(r.date||r.Date||'').slice(0,10);var emoji=(r.emoji||r.Emoji||r.reaction||'').toLowerCase();var msg=(r.message||r.Message||r.text||'').toLowerCase();if(!date)return;if(!(emoji.indexOf('white_check_mark')>=0||emoji.indexOf('check')>=0||emoji.indexOf('✅')>=0))return;DATA.tasks.forEach(function(t){if(t.match_key&&msg.indexOf(t.match_key)>=0){(byDate[date]=byDate[date]||{})[t.task_id]=1;}});});return byDate;}
+var DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+async function loadHistory(){var box=document.getElementById('hist-box'),cards=document.getElementById('hist-cards'),dowB=document.getElementById('hist-dow'),recB=document.getElementById('hist-recent');
+if(!CONFIG.TASKLOG_CSV){cards.innerHTML='';box.innerHTML='<div class="hint">Connect the Task Log to see history.</div>';return;}
+var rows=logRows||await fetchCSV(CONFIG.TASKLOG_CSV);if(!rows||rows.error){box.innerHTML='<div class="hint">Could not load history.</div>';return;}
+var byDate=completionsByDate(rows);var logged=Object.keys(byDate).sort();
+if(!logged.length){cards.innerHTML='';box.innerHTML='<div class="hint">No completions logged yet — history builds up as the team reacts ✅ each day.</div>';dowB.innerHTML='';recB.innerHTML='';return;}
+var trackable=DATA.tasks.filter(function(t){return t.match_key;});
+var today=londonNow().date;var days=[];var d=new Date(logged[0]+'T12:00:00Z');var todayD=new Date(today+'T12:00:00Z');
+while(d<todayD){var ds=d.toISOString().slice(0,10);days.push({date:ds,dow:new Date(ds+'T12:00:00Z').getUTCDay()});d.setUTCDate(d.getUTCDate()+1);}
+if(!days.length){cards.innerHTML='';box.innerHTML='<div class="hint">Tracking started today — trends appear from tomorrow once there’s a full day to compare.</div>';dowB.innerHTML='';recB.innerHTML='';return;}
+var missByTask={},expByTask={},dowExp=[0,0,0,0,0,0,0],dowDone=[0,0,0,0,0,0,0],totExp=0,totDone=0;var recent=[];
+days.forEach(function(day){var exp=trackable.filter(function(t){return isToday(t.frequency,day.dow)===true;});var done=exp.filter(function(t){return byDate[day.date]&&byDate[day.date][t.task_id];});var missed=exp.filter(function(t){return !(byDate[day.date]&&byDate[day.date][t.task_id]);});
+exp.forEach(function(t){expByTask[t.task_id]=(expByTask[t.task_id]||0)+1;});missed.forEach(function(t){missByTask[t.task_id]=(missByTask[t.task_id]||0)+1;});
+dowExp[day.dow]+=exp.length;dowDone[day.dow]+=done.length;totExp+=exp.length;totDone+=done.length;
+recent.push({date:day.date,dow:DOW[day.dow],done:done.length,exp:exp.length,missed:missed.map(function(t){return t.task_name;})});});
+var pct=totExp?Math.round(totDone/totExp*100):0;var totMiss=totExp-totDone;
+cards.innerHTML='<div class="stat"><div class="n">'+days.length+'</div><div class="l">days tracked</div></div>'+
+'<div class="stat green"><div class="n">'+pct+'%</div><div class="l">completed</div></div>'+
+'<div class="stat red"><div class="n">'+totMiss+'</div><div class="l">total misses</div></div>';
+var ranked=trackable.map(function(t){return {name:t.task_name,miss:missByTask[t.task_id]||0,exp:expByTask[t.task_id]||0};}).filter(function(x){return x.exp>0;}).sort(function(a,b){return b.miss-a.miss;});
+var h='<table><tr><th>Task</th><th>Missed</th><th>Expected</th><th>Miss rate</th></tr>';ranked.forEach(function(x){var mr=x.exp?Math.round(x.miss/x.exp*100):0;h+='<tr><td>'+x.name+'</td><td style="font-weight:700;color:'+(x.miss>0?'#b5442e':'#2f8f5b')+'">'+x.miss+'</td><td>'+x.exp+'</td><td>'+mr+'%</td></tr>';});h+='</table>';box.innerHTML=h;
+var dh='<table><tr><th>Day</th><th>Completed</th></tr>';[1,2,3,4,5,6,0].forEach(function(i){if(dowExp[i]===0)return;var p=Math.round(dowDone[i]/dowExp[i]*100);dh+='<tr><td>'+DOW[i]+'</td><td>'+p+'% <span class="count">('+dowDone[i]+'/'+dowExp[i]+')</span></td></tr>';});dh+='</table>';dowB.innerHTML=dh;
+var rh='<table><tr><th>Date</th><th>Done</th><th>Missed tasks</th></tr>';recent.slice(-14).reverse().forEach(function(r){rh+='<tr><td>'+r.dow+' '+r.date+'</td><td>'+r.done+'/'+r.exp+'</td><td style="color:'+(r.missed.length?'#b5442e':'#2f8f5b')+'">'+(r.missed.length?r.missed.join(', '):'— all done')+'</td></tr>';});rh+='</table>';recB.innerHTML=rh;}
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['today','cov','log','history','res','all'].forEach(v=>document.getElementById('v-'+v).classList.add('hide'));document.getElementById('v-'+b.dataset.v).classList.remove('hide');const v=b.dataset.v;if(v==='cov')loadCov();if(v==='log')renderLog();if(v==='history')loadHistory();if(v==='res')renderRes();if(v==='all')renderAll();}));
 document.getElementById('ver').textContent='site v1 · '+DATA.tasks.length+' tasks';
 render();loadLog();setInterval(()=>{loadLog();},120000);setInterval(render,60000);
 </script></body></html>
