@@ -72,7 +72,7 @@ select.filter{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(-
 <section id="v-today"><h2 id="today-h">Today</h2><div class="bar"><span id="prog"></span></div><div class="count" id="progc"></div>
 <div id="due"></div><h2>Later today</h2><div id="later"></div><h2>Ongoing</h2><div id="ongoing"></div></section>
 <section id="v-log" class="hide"><h2>Activity log — what's been actioned</h2><div class="count">Every ✅ reaction in #guest-ops-dashboard, newest first.</div><div id="logbox"><div class="spin">Loading…</div></div></section>
-<section id="v-cov" class="hide"><h2>Changeover forms — today</h2><div class="count">Cabins with a changeover today vs cleaner feedback forms received. Overdue after 3pm UK.</div><div id="cov-cards" class="cards"></div><h2>Chase list</h2><div id="cov-chase"><div class="spin">Loading…</div></div></section>
+<section id="v-cov" class="hide"><h2>Changeover forms — today</h2><div class="count">Cabins with a changeover today vs cleaner feedback forms received. Overdue after 3pm UK.</div><div id="cov-cards" class="cards"></div><div class="manage-head" style="margin-top:10px"><div class="seg"><button class="segbtn active" id="cseg-out">Outstanding</button><button class="segbtn" id="cseg-rec">Received</button></div></div><div id="cov-chase"><div class="spin">Loading…</div></div></section>
 <section id="v-history" class="hide"><h2>History &amp; trends</h2><div class="count">Built from the ✅ log since tracking began (today is excluded until it's a full day). Counts the ✅-tracked reminder tasks.</div><div id="hist-cards" class="cards"></div><h2>Most-missed tasks</h2><div id="hist-box"><div class="spin">Loading…</div></div><h2>By day of week</h2><div id="hist-dow"></div><h2>Recent days</h2><div id="hist-recent"></div></section>
 <section id="v-res" class="hide"><h2>Resource hub</h2><div class="hint" id="res-missing"></div><div id="res-list"></div></section>
 <section id="v-all" class="hide"><h2>All tasks</h2><div><select class="filter" id="f-cat"><option value="">All categories</option></select><select class="filter" id="f-freq"><option value="">All frequencies</option></select></div><div style="overflow:auto"><table id="alltbl"></table></div></section>
@@ -138,20 +138,35 @@ function renderAll(){const cats=[...new Set(DATA.tasks.map(t=>t.category))].sort
 const cv=fc.value,fv=ff.value,list=DATA.tasks.filter(t=>(!cv||t.category===cv)&&(!fv||t.frequency===fv));let h='<tr><th>ID</th><th>Task</th><th>Cat</th><th>Freq</th><th>Time</th><th>Owner</th><th>Links</th></tr>';
 list.forEach(t=>{h+='<tr><td>'+t.task_id+'</td><td>'+t.task_name+'</td><td>'+t.category+'</td><td>'+t.frequency+'</td><td>'+t.time_uk+'</td><td>'+t.owner_role+'</td><td>'+[resLink(t.sop_ref,'SOP'),resLink(t.tool_ref,'Tool'),resLink(t.form_ref,'Form')].filter(Boolean).join(' ')+'</td></tr>';});document.getElementById('alltbl').innerHTML=h;}
 document.getElementById('f-cat').addEventListener('change',renderAll);document.getElementById('f-freq').addEventListener('change',renderAll);
+let covRows=null,covTab='out';
+function covStatus(r){return (r.status||r.Status||'').toUpperCase();}
+function covCabin(r){return r.cabin||r.Cabin||'';}
+function wireCovSeg(){const o=document.getElementById('cseg-out'),c=document.getElementById('cseg-rec');if(o)o.onclick=()=>{covTab='out';renderCovList();};if(c)c.onclick=()=>{covTab='rec';renderCovList();};}
 async function loadCov(){const box=document.getElementById('cov-chase');const cards=document.getElementById('cov-cards');
 if(!CONFIG.CHANGEOVER_CSV){cards.innerHTML='';box.innerHTML='<div class="hint">Add your Changeover Tracker published-CSV URL in CONFIG (top of this file) to show changeover form tracking.</div>';return;}
 const data=await fetchCSV(CONFIG.CHANGEOVER_CSV);
 if(!data||data.error){box.innerHTML='<div class="hint">Could not load: '+(data&&data.error?data.error:'')+'</div>';return;}
-const rows=data.filter(r=>{const c=r.cabin||r.Cabin||'';return c&&c!=='\u2014';});
-let sub=0,out=0,over=0;rows.forEach(r=>{const st=(r.status||r.Status||'').toUpperCase();if(st==='SUBMITTED')sub++;else if(st==='OVERDUE')over++;else out++;});
-cards.innerHTML='<div class="stat"><div class="n">'+rows.length+'</div><div class="l">changeovers today</div></div>'+
+covRows=data.filter(r=>{const c=covCabin(r);return c&&c!=='\u2014';});
+let sub=0,out=0,over=0;covRows.forEach(r=>{const st=covStatus(r);if(st==='SUBMITTED')sub++;else if(st==='OVERDUE')over++;else out++;});
+cards.innerHTML='<div class="stat"><div class="n">'+covRows.length+'</div><div class="l">changeovers today</div></div>'+
 '<div class="stat green"><div class="n">'+sub+'</div><div class="l">forms in</div></div>'+
 '<div class="stat amber"><div class="n">'+out+'</div><div class="l">outstanding</div></div>'+
 '<div class="stat red"><div class="n">'+over+'</div><div class="l">overdue</div></div>';
-const chase=rows.filter(r=>{const st=(r.status||r.Status||'').toUpperCase();return st==='OVERDUE'||st==='OUTSTANDING';});
+renderCovList();wireCovSeg();}
+function renderCovList(){const box=document.getElementById('cov-chase');if(!covRows)return;
+const so=document.getElementById('cseg-out'),sr=document.getElementById('cseg-rec');if(so)so.classList.toggle('active',covTab==='out');if(sr)sr.classList.toggle('active',covTab==='rec');
+if(covTab==='rec'){
+ const rec=covRows.filter(r=>covStatus(r)==='SUBMITTED');
+ if(!rec.length){box.innerHTML='<div class="hint">No changeover forms received yet today.</div>';return;}
+ rec.sort((a,b)=>((a.submitted_at||'')<(b.submitted_at||'')?-1:1));
+ let h='<div class="count" style="margin-bottom:6px">'+rec.length+' form'+(rec.length>1?'s':'')+' received today.</div><table><tr><th>Cabin</th><th>Status</th><th>Submitted at</th></tr>';
+ rec.forEach(r=>{h+='<tr><td><b>'+covCabin(r)+'</b></td><td style="color:#2f8f5b;font-weight:600">\u2705 RECEIVED</td><td>'+(r.submitted_at||r['submitted_at']||'')+'</td></tr>';});
+ h+='</table>';box.innerHTML=h;return;
+}
+const chase=covRows.filter(r=>{const st=covStatus(r);return st==='OVERDUE'||st==='OUTSTANDING';});
 if(!chase.length){box.innerHTML='<div class="hint">All changeover forms are in. \ud83c\udf89</div>';return;}
 chase.sort((a,b)=>((a.status||'')<(b.status||'')?-1:1));
-let h='<table><tr><th>Cabin</th><th>Status</th><th>Submitted</th></tr>';chase.forEach(r=>{const st=(r.status||r.Status||'').toUpperCase();h+='<tr><td><b>'+(r.cabin||r.Cabin)+'</b></td><td style="color:'+(st==='OVERDUE'?'#b5442e':'#c77b2b')+';font-weight:'+(st==='OVERDUE'?700:600)+'">'+st+(st==='OVERDUE'?' \u26a0':'')+'</td><td>'+(r.submitted_at||r['submitted_at']||'')+'</td></tr>';});h+='</table>';box.innerHTML=h;}
+let h='<table><tr><th>Cabin</th><th>Status</th><th>Submitted</th></tr>';chase.forEach(r=>{const st=covStatus(r);h+='<tr><td><b>'+covCabin(r)+'</b></td><td style="color:'+(st==='OVERDUE'?'#b5442e':'#c77b2b')+';font-weight:'+(st==='OVERDUE'?700:600)+'">'+st+(st==='OVERDUE'?' \u26a0':'')+'</td><td>'+(r.submitted_at||r['submitted_at']||'')+'</td></tr>';});h+='</table>';box.innerHTML=h;}
 function completionsByDate(rows){var byDate={};rows.forEach(function(r){var date=(r.date||r.Date||'').slice(0,10);var emoji=(r.emoji||r.Emoji||r.reaction||'').toLowerCase();var msg=(r.message||r.Message||r.text||'').toLowerCase();if(!date)return;if(!(emoji.indexOf('white_check_mark')>=0||emoji.indexOf('check')>=0||emoji.indexOf('✅')>=0))return;DATA.tasks.forEach(function(t){if(t.match_key&&msg.indexOf(t.match_key)>=0){(byDate[date]=byDate[date]||{})[t.task_id]=1;}});});return byDate;}
 var DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 async function loadHistory(){var box=document.getElementById('hist-box'),cards=document.getElementById('hist-cards'),dowB=document.getElementById('hist-dow'),recB=document.getElementById('hist-recent');
