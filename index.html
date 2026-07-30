@@ -381,7 +381,7 @@ function payCard(b,canEdit){const st=payStatus(b);
 const badge=st==='plan'?'✅':st==='followup'?'🔔':'•';
 const stLabel=st==='followup'?'<span class="tag" style="background:#fbeeea;color:#b5442e;border-color:#e6c3ba">Needs follow-up</span>':st==='plan'?'<span class="tag now">On payment plan</span>':'<span class="tag up">Needs review</span>';
 const meta=[b.cabin,(b.arrival?'arrives '+b.arrival:''),(b.due?'balance due '+b.due:'')].filter(Boolean).join(' · ');
-const money='<div class="good">Balance <b style="color:var(--red)">'+fmtMoney(b.balance)+'</b> of '+fmtMoney(b.total)+' · paid '+fmtMoney(b.paid)+'</div>';
+const money='<div class="good">Balance due <b style="color:var(--red)">'+fmtMoney(b.balance)+'</b>'+((+b.total>0)?(' of '+fmtMoney(b.total)+' · paid '+fmtMoney(b.paid)):'')+'</div>';
 let controls='';
 if(canEdit){controls='<div class="links">'+
 '<button class="btn sm'+(st==='plan'?' pri':'')+'" data-ref="'+esc(b.ref)+'" data-setstatus="plan">On plan</button>'+
