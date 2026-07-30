@@ -67,10 +67,11 @@ select.filter{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(-
 <header><div><div class="t">Unplugged · Guest Ops Live Dashboard</div><div class="sub">Today's rhythm · react ✅ in Slack to complete</div></div>
 <div class="authbox"><span class="who" id="who"></span><button class="btn sm" id="signin">Sign in</button><button class="btn sm hide" id="signout">Sign out</button>
 <div class="clock"><div class="time" id="clk">--:--</div><div class="day" id="dow">UK</div></div></div></header>
-<nav><button data-v="today" class="active">Today</button><button data-v="cov">Changeover forms</button><button data-v="log">Activity log</button><button data-v="history">History</button><button data-v="res">Resources</button><button data-v="all">All tasks</button><button data-v="manage">Manage</button></nav>
+<nav><button data-v="today" class="active">Today</button><button data-v="cov">Changeover forms</button><button data-v="pay">Payments</button><button data-v="log">Activity log</button><button data-v="history">History</button><button data-v="res">Resources</button><button data-v="all">All tasks</button><button data-v="manage">Manage</button></nav>
 <main>
 <section id="v-today"><h2 id="today-h">Today</h2><div class="bar"><span id="prog"></span></div><div class="count" id="progc"></div>
 <div id="due"></div><h2>Later today</h2><div id="later"></div><h2>Ongoing</h2><div id="ongoing"></div></section>
+<section id="v-pay" class="hide"><h2>Payments to chase</h2><div class="count">Deposit-only / part-paid bookings from the Payments Due sheet. Once a balance clears it leaves the sheet and drops off here automatically.</div><div id="pay-cards" class="cards"></div><div class="manage-head" style="margin-top:8px"><select class="filter" id="pay-filter"><option value="">All</option><option value="review">Needs review</option><option value="followup">Needs follow-up</option><option value="plan">On payment plan</option></select><span id="pay-admin"></span></div><div id="pay-list"><div class="spin">Loading…</div></div></section>
 <section id="v-log" class="hide"><h2>Activity log — what's been actioned</h2><div class="count">Every ✅ reaction in #guest-ops-dashboard, newest first.</div><div id="logbox"><div class="spin">Loading…</div></div></section>
 <section id="v-cov" class="hide"><h2>Changeover forms — today</h2><div class="count">Cabins with a changeover today vs cleaner feedback forms received. Overdue after 3pm UK.</div><div id="cov-cards" class="cards"></div><div class="manage-head" style="margin-top:10px"><div class="seg"><button class="segbtn active" id="cseg-out">Outstanding</button><button class="segbtn" id="cseg-rec">Received</button></div></div><div id="cov-chase"><div class="spin">Loading…</div></div></section>
 <section id="v-history" class="hide"><h2>History &amp; trends</h2><div class="count">Built from the ✅ log since tracking began (today is excluded until it's a full day). Counts the ✅-tracked reminder tasks.</div><div id="hist-cards" class="cards"></div><h2>Most-missed tasks</h2><div id="hist-box"><div class="spin">Loading…</div></div><h2>By day of week</h2><div id="hist-dow"></div><h2>Recent days</h2><div id="hist-recent"></div></section>
@@ -191,7 +192,7 @@ var ranked=trackable.map(function(t){return {name:t.task_name,miss:missByTask[t.
 var h='<table><tr><th>Task</th><th>Missed</th><th>Expected</th><th>Miss rate</th></tr>';ranked.forEach(function(x){var mr=x.exp?Math.round(x.miss/x.exp*100):0;h+='<tr><td>'+x.name+'</td><td style="font-weight:700;color:'+(x.miss>0?'#b5442e':'#2f8f5b')+'">'+x.miss+'</td><td>'+x.exp+'</td><td>'+mr+'%</td></tr>';});h+='</table>';box.innerHTML=h;
 var dh='<table><tr><th>Day</th><th>Completed</th></tr>';[1,2,3,4,5,6,0].forEach(function(i){if(dowExp[i]===0)return;var p=Math.round(dowDone[i]/dowExp[i]*100);dh+='<tr><td>'+DOW[i]+'</td><td>'+p+'% <span class="count">('+dowDone[i]+'/'+dowExp[i]+')</span></td></tr>';});dh+='</table>';dowB.innerHTML=dh;
 var rh='<table><tr><th>Date</th><th>Done</th><th>Missed tasks</th></tr>';recent.slice(-14).reverse().forEach(function(r){rh+='<tr><td>'+r.dow+' '+r.date+'</td><td>'+r.done+'/'+r.exp+'</td><td style="color:'+(r.missed.length?'#b5442e':'#2f8f5b')+'">'+(r.missed.length?r.missed.join(', '):'— all done')+'</td></tr>';});rh+='</table>';recB.innerHTML=rh;}
-document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['today','cov','log','history','res','all','manage'].forEach(v=>document.getElementById('v-'+v).classList.add('hide'));document.getElementById('v-'+b.dataset.v).classList.remove('hide');const v=b.dataset.v;if(v==='cov')loadCov();if(v==='log')renderLog();if(v==='history')loadHistory();if(v==='res')renderRes();if(v==='all')renderAll();if(v==='manage'){renderManage();loadTasks();}}));
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['today','cov','pay','log','history','res','all','manage'].forEach(v=>document.getElementById('v-'+v).classList.add('hide'));document.getElementById('v-'+b.dataset.v).classList.remove('hide');const v=b.dataset.v;if(v==='cov')loadCov();if(v==='pay')loadPayments();if(v==='log')renderLog();if(v==='history')loadHistory();if(v==='res')renderRes();if(v==='all')renderAll();if(v==='manage'){renderManage();loadTasks();}}));
 /* ===== Task manager: live load, Google Sign-In, create/edit/delete ===== */
 const CATS=['Handover','Dashboard','Guest Comms','Changeover','Finance','Quality','Knowledge','Reporting','Reporting'];
 const FREQS=['Daily','Daily incl. weekends','Daily (Mon backlog)','Continuous','Daily until closed','Per event','Per checkout','Weekly','Weekly (Mon)','Monthly'];
@@ -344,6 +345,64 @@ try{requireEdit();const j=await apiPost({token:AUTH.token,action:'reset',scope:'
 toast('Stats cleared: '+((j.cleared&&j.cleared.length)?j.cleared.join(', '):'nothing to clear'));
 if(typeof loadLog==='function')loadLog();if(!hidden('v-history'))loadHistory();if(!hidden('v-cov'))loadCov();}
 catch(e){toast('Error: '+e.message);}}
-document.getElementById('ver').textContent='site v3 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
+/* ---- Payments to chase ---- */
+let PAY={bookings:[],template:''},payFilter='';
+function copyText(txt,okMsg){if(!txt){toast('Nothing to copy');return;}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast(okMsg||'Copied'),()=>toast('Copy failed'));}else{const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast(okMsg||'Copied');}catch(e){toast('Copy failed');}ta.remove();}}
+function fmtMoney(n){var v=Math.round((+n||0)*100)/100;return '£'+v.toFixed(2).replace(/\.00$/,'');}
+function payStatus(b){return (b.status||'').toLowerCase();}
+function payById(ref){return PAY.bookings.filter(b=>b.ref===ref)[0];}
+function fillTemplate(tpl,b){b=b||{};return String(tpl||'').split('{name}').join(b.name||'there').split('{cabin}').join(b.cabin||'your cabin').split('{balance}').join(fmtMoney(b.balance)).split('{link}').join(b.link||'');}
+async function loadPayments(){const list=document.getElementById('pay-list'),cards=document.getElementById('pay-cards');
+if(!CONFIG.TASKS_API){cards.innerHTML='';list.innerHTML='<div class="hint">Connect the Tasks API to show payments (see TASKS_SETUP.md).</div>';return;}
+try{const sep=CONFIG.TASKS_API.indexOf('?')>=0?'&':'?';const r=await fetch(CONFIG.TASKS_API+sep+'action=payments');const j=await r.json();
+if(j&&j.ok){PAY.bookings=j.bookings||[];PAY.template=j.template||'';renderPayments();}
+else{list.innerHTML='<div class="hint">Could not load payments'+(j&&j.error?': '+j.error:'')+'</div>';}}
+catch(e){list.innerHTML='<div class="hint">Could not load payments.</div>';}}
+function renderPayments(){const cards=document.getElementById('pay-cards'),list=document.getElementById('pay-list'),admin=document.getElementById('pay-admin');
+const canEdit=!!(CONFIG.TASKS_API&&AUTH.token);const all=PAY.bookings;
+const nReview=all.filter(b=>!payStatus(b)).length,nFollow=all.filter(b=>payStatus(b)==='followup').length,nPlan=all.filter(b=>payStatus(b)==='plan').length;
+const outstanding=all.reduce((s,b)=>s+(+b.balance||0),0);
+cards.innerHTML='<div class="stat"><div class="n">'+all.length+'</div><div class="l">bookings</div></div>'+
+'<div class="stat amber"><div class="n">'+nReview+'</div><div class="l">to review</div></div>'+
+'<div class="stat red"><div class="n">'+nFollow+'</div><div class="l">follow-up</div></div>'+
+'<div class="stat green"><div class="n">'+nPlan+'</div><div class="l">on plan</div></div>'+
+'<div class="stat"><div class="n" style="font-size:19px">'+fmtMoney(outstanding)+'</div><div class="l">outstanding</div></div>';
+admin.innerHTML=canEdit?'<button class="btn sm" id="pay-tmpl-btn">✎ Edit follow-up template</button>':'<span class="count">Sign in (top right) to update statuses.</span>';
+if(canEdit){const tb=document.getElementById('pay-tmpl-btn');if(tb)tb.onclick=openTemplateModal;}
+let rows=all.slice();
+if(payFilter==='review')rows=rows.filter(b=>!payStatus(b));else if(payFilter)rows=rows.filter(b=>payStatus(b)===payFilter);
+const rank={followup:0,'':1,plan:2};rows.sort((a,b)=>{const ra=rank[payStatus(a)]==null?1:rank[payStatus(a)],rb=rank[payStatus(b)]==null?1:rank[payStatus(b)];if(ra!==rb)return ra-rb;return (b.balance||0)-(a.balance||0);});
+if(!rows.length){list.innerHTML='<div class="hint">Nothing to show for this filter. 🎉</div>';return;}
+list.innerHTML=rows.map(b=>payCard(b,canEdit)).join('');
+if(canEdit){list.querySelectorAll('[data-setstatus]').forEach(btn=>btn.onclick=()=>setBookingStatus(btn.getAttribute('data-ref'),btn.getAttribute('data-setstatus')));}
+list.querySelectorAll('[data-paycopy]').forEach(btn=>btn.onclick=()=>copyText(fillTemplate(PAY.template,payById(btn.getAttribute('data-paycopy'))),'Message copied'));
+list.querySelectorAll('[data-linkcopy]').forEach(btn=>btn.onclick=()=>{const b=payById(btn.getAttribute('data-linkcopy'));copyText(b&&b.link,'Payment link copied');});}
+function payCard(b,canEdit){const st=payStatus(b);
+const badge=st==='plan'?'✅':st==='followup'?'🔔':'•';
+const stLabel=st==='followup'?'<span class="tag" style="background:#fbeeea;color:#b5442e;border-color:#e6c3ba">Needs follow-up</span>':st==='plan'?'<span class="tag now">On payment plan</span>':'<span class="tag up">Needs review</span>';
+const meta=[b.cabin,(b.arrival?'arrives '+b.arrival:''),(b.due?'balance due '+b.due:'')].filter(Boolean).join(' · ');
+const money='<div class="good">Balance <b style="color:var(--red)">'+fmtMoney(b.balance)+'</b> of '+fmtMoney(b.total)+' · paid '+fmtMoney(b.paid)+'</div>';
+let controls='';
+if(canEdit){controls='<div class="links">'+
+'<button class="btn sm'+(st==='plan'?' pri':'')+'" data-ref="'+esc(b.ref)+'" data-setstatus="plan">On plan</button>'+
+'<button class="btn sm'+(st==='followup'?' danger':'')+'" data-ref="'+esc(b.ref)+'" data-setstatus="followup">Follow-up</button>'+
+(st?'<button class="btn sm" data-ref="'+esc(b.ref)+'" data-setstatus="">Clear</button>':'')+'</div>';}
+let follow='';
+if(st==='followup'){follow='<div class="tmpl">'+escHtml(fillTemplate(PAY.template,b))+'</div><div class="links"><button class="copybtn" data-paycopy="'+esc(b.ref)+'">📋 Copy message</button>'+(b.link?'<a href="'+esc(b.link)+'" target="_blank" rel="noopener">Open payment link ↗</a><button class="copybtn" data-linkcopy="'+esc(b.ref)+'">🔗 Copy link</button>':'<span class="nolink">no payment link on file</span>')+'</div>';}
+return '<div class="card'+(st==='plan'?' up':'')+'"><div class="badge2">'+badge+'</div><div class="body"><div class="row1"><span class="name">'+escHtml(b.name||b.ref)+'</span> '+stLabel+' <span class="tag">'+esc(b.ref)+'</span></div>'+(meta?'<div class="good">'+escHtml(meta)+'</div>':'')+money+controls+follow+'</div></div>';}
+async function setBookingStatus(ref,status){try{requireEdit();}catch(e){toast(e.message);return;}
+try{const j=await apiPost({token:AUTH.token,action:'payment_status',booking_reference:ref,status:status});if(Array.isArray(j.bookings))PAY.bookings=j.bookings;renderPayments();toast(status==='plan'?'Marked on plan':status==='followup'?'Marked for follow-up':'Cleared');}catch(e){toast('Error: '+e.message);}}
+function openTemplateModal(){const root=document.getElementById('modal-root');
+root.innerHTML='<div class="modal-bg" id="mbg"><div class="modal"><h3>Follow-up template</h3>'+
+'<div class="count" style="margin-bottom:8px">Auto-fills per booking: <b>{name}</b>, <b>{cabin}</b>, <b>{balance}</b>, <b>{link}</b>.</div>'+
+'<div class="field"><textarea id="tmpl_text" style="min-height:150px">'+escHtml(PAY.template||'')+'</textarea></div>'+
+'<div class="modal-actions"><button class="btn danger" id="mcancel">Cancel</button><button class="btn pri" id="mtmpl">Save template</button></div>'+
+'</div></div>';
+document.getElementById('mcancel').onclick=closeEditor;
+document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();};
+document.getElementById('mtmpl').onclick=saveTemplate;}
+async function saveTemplate(){const el=document.getElementById('tmpl_text');const t=el?el.value:'';try{requireEdit();const j=await apiPost({token:AUTH.token,action:'payment_template',template:t});PAY.template=(j.template!==undefined)?j.template:t;closeEditor();renderPayments();toast('Template saved');}catch(e){toast('Error: '+e.message);}}
+document.getElementById('pay-filter').addEventListener('change',e=>{payFilter=e.target.value;renderPayments();});
+document.getElementById('ver').textContent='site v4 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
 render();loadLog();loadTasks();initAuth();setInterval(()=>{loadLog();},120000);setInterval(render,60000);
 </script></body></html>
