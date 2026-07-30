@@ -235,7 +235,7 @@ function signOut(){AUTH.token=null;AUTH.email=null;AUTH.name=null;try{localStora
 document.getElementById('signin').addEventListener('click',openLogin);
 document.getElementById('signout').addEventListener('click',signOut);
 /* ---- API ---- */
-async function loadTasks(){if(!CONFIG.TASKS_API)return;try{const sep=CONFIG.TASKS_API.indexOf('?')>=0?'&':'?';const r=await fetch(CONFIG.TASKS_API+sep+'action=tasks');const j=await r.json();if(j&&j.ok){apiState.reachable=true;if(Array.isArray(j.tasks)){apiState.taskCount=j.tasks.length;if(j.tasks.length)DATA.tasks=j.tasks.map(normTask);}if(Array.isArray(j.resources)){apiState.resCount=j.resources.length;if(j.resources.length){DATA.resources=j.resources.map(normRes);rebuildResMap();}}render();if(!hidden('v-all'))renderAll();if(!hidden('v-res'))renderRes();if(!hidden('v-manage'))renderManage();}}catch(e){/* keep built-in lists */}}
+async function loadTasks(){if(!CONFIG.TASKS_API)return;try{const sep=CONFIG.TASKS_API.indexOf('?')>=0?'&':'?';const r=await fetch(CONFIG.TASKS_API+sep+'action=tasks&_='+Date.now(),{cache:'no-store'});const j=await r.json();if(j&&j.ok){apiState.reachable=true;if(Array.isArray(j.tasks)){apiState.taskCount=j.tasks.length;if(j.tasks.length)DATA.tasks=j.tasks.map(normTask);}if(Array.isArray(j.resources)){apiState.resCount=j.resources.length;if(j.resources.length){DATA.resources=j.resources.map(normRes);rebuildResMap();}}render();if(!hidden('v-all'))renderAll();if(!hidden('v-res'))renderRes();if(!hidden('v-manage'))renderManage();}}catch(e){/* keep built-in lists */}}
 async function apiPost(payload){const r=await fetch(CONFIG.TASKS_API,{method:'POST',body:JSON.stringify(payload)});const j=await r.json();if(!j.ok)throw new Error(j.error||'Request failed');if(Array.isArray(j.tasks)){DATA.tasks=j.tasks.map(normTask);apiState.taskCount=j.tasks.length;}if(Array.isArray(j.resources)){DATA.resources=j.resources.map(normRes);apiState.resCount=j.resources.length;rebuildResMap();}apiState.reachable=true;return j;}
 function requireEdit(){if(!CONFIG.TASKS_API)throw new Error('Task API not connected yet');if(!AUTH.token)throw new Error('Please sign in first');}
 /* ---- Manage view ---- */
@@ -354,7 +354,7 @@ function payById(ref){return PAY.bookings.filter(b=>b.ref===ref)[0];}
 function fillTemplate(tpl,b){b=b||{};return String(tpl||'').split('{name}').join(b.name||'there').split('{cabin}').join(b.cabin||'your cabin').split('{balance}').join(fmtMoney(b.balance)).split('{link}').join(b.link||'');}
 async function loadPayments(){const list=document.getElementById('pay-list'),cards=document.getElementById('pay-cards');
 if(!CONFIG.TASKS_API){cards.innerHTML='';list.innerHTML='<div class="hint">Connect the Tasks API to show payments (see TASKS_SETUP.md).</div>';return;}
-try{const sep=CONFIG.TASKS_API.indexOf('?')>=0?'&':'?';const r=await fetch(CONFIG.TASKS_API+sep+'action=payments');const j=await r.json();
+try{const sep=CONFIG.TASKS_API.indexOf('?')>=0?'&':'?';const r=await fetch(CONFIG.TASKS_API+sep+'action=payments&_='+Date.now(),{cache:'no-store'});const j=await r.json();
 if(j&&j.ok){PAY.bookings=j.bookings||[];PAY.template=j.template||'';renderPayments();}
 else{list.innerHTML='<div class="hint">Could not load payments'+(j&&j.error?': '+j.error:'')+'</div>';}}
 catch(e){list.innerHTML='<div class="hint">Could not load payments.</div>';}}
@@ -403,6 +403,6 @@ document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();
 document.getElementById('mtmpl').onclick=saveTemplate;}
 async function saveTemplate(){const el=document.getElementById('tmpl_text');const t=el?el.value:'';try{requireEdit();const j=await apiPost({token:AUTH.token,action:'payment_template',template:t});PAY.template=(j.template!==undefined)?j.template:t;closeEditor();renderPayments();toast('Template saved');}catch(e){toast('Error: '+e.message);}}
 document.getElementById('pay-filter').addEventListener('change',e=>{payFilter=e.target.value;renderPayments();});
-document.getElementById('ver').textContent='site v4 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
+document.getElementById('ver').textContent='site v5 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
 render();loadLog();loadTasks();initAuth();setInterval(()=>{loadLog();},120000);setInterval(render,60000);
 </script></body></html>
