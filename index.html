@@ -61,7 +61,7 @@ select.filter{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(-
 .tmpl{background:#f3f7f5;border:1px solid #d8e5e0;border-radius:8px;padding:7px 9px;margin-top:6px;font-size:13px;color:#2c463f;white-space:pre-wrap}
 .manage-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
 #gate{position:fixed;inset:0;z-index:200;background:linear-gradient(160deg,var(--green-d),#17332e);display:flex;align-items:center;justify-content:center;padding:22px}
-#gate .card{background:#fff;border-radius:16px;max-width:380px;width:100%;padding:26px 26px 20px;box-shadow:0 18px 55px rgba(0,0,0,.35)}
+#gate .gate-card{display:block;background:#fff;border-radius:16px;max-width:380px;width:100%;padding:26px 26px 20px;box-shadow:0 18px 55px rgba(0,0,0,.35)}
 #gate h1{font-size:19px;margin:0 0 4px;color:var(--green-d)}
 #gate .gsub{font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.45}
 #gate .gfield{margin:10px 0}
@@ -76,7 +76,7 @@ body.locked{overflow:hidden}
 .segbtn{font:inherit;font-size:13px;font-weight:600;border:0;background:#fff;color:var(--muted);padding:6px 14px;cursor:pointer}
 .segbtn.active{background:var(--green-d);color:#fff}
 </style></head><body class="locked">
-<div id="gate"><div class="card">
+<div id="gate"><div class="gate-card">
 <h1>Unplugged · Guest Ops</h1>
 <div class="gsub">This dashboard contains private guest information. Please sign in to continue.</div>
 <div class="gfield"><label>Username</label><input id="g_user" autocomplete="username" autocapitalize="none"></div>
@@ -430,6 +430,6 @@ document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();
 document.getElementById('mtmpl').onclick=saveTemplate;}
 async function saveTemplate(){const el=document.getElementById('tmpl_text');const t=el?el.value:'';try{requireEdit();const j=await apiPost({token:AUTH.token,action:'payment_template',template:t});PAY.template=(j.template!==undefined)?j.template:t;closeEditor();renderPayments();toast('Template saved');}catch(e){toast('Error: '+e.message);}}
 document.getElementById('pay-filter').addEventListener('change',e=>{payFilter=e.target.value;renderPayments();});
-document.getElementById('ver').textContent='site v6 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
+document.getElementById('ver').textContent='site v7 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
 render();loadLog();loadTasks();initAuth();setInterval(()=>{loadLog();},120000);setInterval(render,60000);
 </script></body></html>
