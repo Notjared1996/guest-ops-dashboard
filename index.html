@@ -78,7 +78,7 @@ select.filter{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(-
 <section id="v-all" class="hide"><h2>All tasks</h2><div><select class="filter" id="f-cat"><option value="">All categories</option></select><select class="filter" id="f-freq"><option value="">All frequencies</option></select></div><div style="overflow:auto"><table id="alltbl"></table></div></section>
 <section id="v-manage" class="hide"><div class="manage-head"><div class="seg"><button class="segbtn active" id="seg-tasks">Tasks</button><button class="segbtn" id="seg-res">Resources</button></div><div id="mng-auth"></div></div>
 <div class="count" id="mng-note">Edit timings, headings, linked resources and copyable template messages. Changes save to the shared sheet.</div>
-<div style="overflow:auto" id="mng-box"><div class="spin">Loading…</div></div></section>
+<div style="overflow:auto" id="mng-box"><div class="spin">Loading…</div></div><div id="mng-danger"></div></section>
 </main>
 <div id="modal-root"></div>
 <footer>Time-gated to UK time · resets daily · completions come from Slack ✅ reactions via the Task Log. · <span id="ver"></span></footer>
@@ -180,7 +180,8 @@ document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()
 /* ===== Task manager: live load, Google Sign-In, create/edit/delete ===== */
 const CATS=['Handover','Dashboard','Guest Comms','Changeover','Finance','Quality','Knowledge','Reporting','Reporting'];
 const FREQS=['Daily','Daily incl. weekends','Daily (Mon backlog)','Continuous','Daily until closed','Per event','Per checkout','Weekly','Weekly (Mon)','Monthly'];
-const TASK_FIELDS=['task_id','task_name','category','frequency','time_uk','owner_role','tool_ref','sop_ref','form_ref','source','what_good_looks_like','match_key','template_msg'];
+const TASK_FIELDS=['task_id','task_name','category','frequency','time_uk','owner_role','tool_ref','sop_ref','form_ref','source','what_good_looks_like','match_key','template_msg','reminder','reminder_time','reminder_days','chase_time','reminder_msg','chase_msg'];
+function remOn(t){return ['yes','y','true','1','x','on','✓','✔'].indexOf(String(t.reminder||'').trim().toLowerCase())>=0;}
 const RES_FIELDS=['resource_id','name','type','url','notes'];
 const AUTH={token:null,email:null,name:null};
 const apiState={reachable:false,taskCount:null,resCount:null};
@@ -235,12 +236,15 @@ else{ctrl='<span class="count">Read-only preview — connect the Tasks API to en
 authd.innerHTML=ctrl;
 note.textContent=canEdit?('Signed in as '+AUTH.email+'. Changes save to the shared sheet and are logged.'):(manageTab==='tasks'?'Edit timings, headings, linked resources and copyable template messages here.':'Add, edit and remove the tools, SOPs, forms and links used across the dashboard.');
 if(manageTab==='tasks')renderManageTasks(canEdit);else renderManageRes(canEdit);
+const dz=document.getElementById('mng-danger');
+if(dz){if(canEdit){dz.innerHTML='<div class="res-group" style="border-color:#e6c3ba;margin-top:18px"><h3 style="color:var(--red)">Danger zone</h3><div class="count" style="margin-bottom:8px">Clear all activity &amp; history — the Activity log, History &amp; trends, reminder history and changeover history — to start fresh after testing. Tasks, resources, reminder settings, logins and today’s live changeover view are kept.</div><button class="btn danger" id="resetbtn">Reset stats…</button></div>';const rb=document.getElementById('resetbtn');if(rb)rb.onclick=openResetModal;}else{dz.innerHTML='';}}
 wireSeg();}
 function renderManageTasks(canEdit){const box=document.getElementById('mng-box');
 const rows=DATA.tasks.slice().sort((a,b)=>a.task_id<b.task_id?-1:1);
-let h='<table><tr><th>ID</th><th>Heading</th><th>Timing</th><th>Cat</th><th>Freq</th><th>Resource</th><th>Template</th>'+(canEdit?'<th></th>':'')+'</tr>';
+let h='<table><tr><th>ID</th><th>Heading</th><th>Timing</th><th>Cat</th><th>Freq</th><th>Resource</th><th>Template</th><th>🔔 Reminder</th>'+(canEdit?'<th></th>':'')+'</tr>';
 rows.forEach(t=>{const res=[t.tool_ref,t.sop_ref,t.form_ref].filter(Boolean).map(x=>resMap[x]?resMap[x].name:x).join(', ');
-h+='<tr><td>'+t.task_id+'</td><td>'+escHtml(t.task_name)+'</td><td>'+escHtml(t.time_uk||'')+'</td><td>'+escHtml(t.category||'')+'</td><td>'+escHtml(t.frequency||'')+'</td><td>'+escHtml(res||'—')+'</td><td>'+(t.template_msg?'<button class="copybtn" data-copy="'+esc(t.task_id)+'">📋 Copy</button>':'<span class="count">—</span>')+'</td>'+(canEdit?'<td style="white-space:nowrap"><button class="btn sm" data-edit="'+esc(t.task_id)+'">Edit</button> <button class="btn sm danger" data-del="'+esc(t.task_id)+'">Del</button></td>':'')+'</tr>';});
+const rem=remOn(t)?('<span style="color:var(--ok);font-weight:600">'+escHtml((t.reminder_time||t.time_uk||'').match(/\d{1,2}:\d{2}/)?((t.reminder_time||t.time_uk).match(/\d{1,2}:\d{2}/)[0]):'on')+(t.reminder_days?' '+escHtml(t.reminder_days):'')+'</span>'+(t.chase_time?'<span class="count"> · ↻ '+escHtml(t.chase_time)+'</span>':'')):'<span class="count">—</span>';
+h+='<tr><td>'+t.task_id+'</td><td>'+escHtml(t.task_name)+'</td><td>'+escHtml(t.time_uk||'')+'</td><td>'+escHtml(t.category||'')+'</td><td>'+escHtml(t.frequency||'')+'</td><td>'+escHtml(res||'—')+'</td><td>'+(t.template_msg?'<button class="copybtn" data-copy="'+esc(t.task_id)+'">📋 Copy</button>':'<span class="count">—</span>')+'</td><td>'+rem+'</td>'+(canEdit?'<td style="white-space:nowrap"><button class="btn sm" data-edit="'+esc(t.task_id)+'">Edit</button> <button class="btn sm danger" data-del="'+esc(t.task_id)+'">Del</button></td>':'')+'</tr>';});
 h+='</table>';box.innerHTML=h;
 if(canEdit){const nt=document.getElementById('newtask');if(nt)nt.onclick=()=>openEditor(null);
 const sb=document.getElementById('seedbtn');if(sb)sb.onclick=seedTasks;
@@ -274,6 +278,12 @@ root.innerHTML='<div class="modal-bg" id="mbg"><div class="modal"><h3>'+(isNew?'
 '<div class="field"><label>What good looks like</label><textarea id="f_good">'+escHtml(t.what_good_looks_like||'')+'</textarea></div>'+
 '<div class="field"><label>Template message <span class="count">(copyable — shown with a 📋 Copy button)</span></label><textarea id="f_tmpl" placeholder="Canned message the team can copy &amp; send">'+escHtml(t.template_msg||'')+'</textarea></div>'+
 '<div class="field"><label>Slack completion keyword <span class="count">(match_key — optional, lowercase phrase in the Slack reminder)</span></label><input id="f_mk" value="'+esc(t.match_key||'')+'"></div>'+
+'<div class="frow" style="align-items:flex-end"><div class="field"><label>Slack reminder</label><select id="f_rem"><option value=""'+(remOn(t)?'':' selected')+'>Off</option><option value="yes"'+(remOn(t)?' selected':'')+'>On — post to Slack</option></select></div>'+
+'<div class="field"><label>Reminder time <span class="count">(blank = use timing)</span></label><input id="f_remtime" value="'+esc(t.reminder_time||'')+'" placeholder="e.g. 09:30, 10pm, 5am"></div>'+
+'<div class="field"><label>Days <span class="count">(blank = every day)</span></label><input id="f_remdays" value="'+esc(t.reminder_days||'')+'" placeholder="e.g. Mon,Wed,Fri"></div></div>'+
+'<div class="field"><label>Reminder message <span class="count">(what gets posted to Slack — blank = default; {name} and {time} are filled in)</span></label><textarea id="f_remmsg" placeholder="🔔 {name} — due {time} UK. React ✅ when done.">'+escHtml(t.reminder_msg||'')+'</textarea></div>'+
+'<div class="field"><label>Chase / follow-up time(s) <span class="count">(the reminder that goes off if it is NOT ✅ done yet; comma-separate several, e.g. 16:00,6pm)</span></label><input id="f_chase" value="'+esc(t.chase_time||'')+'" placeholder="e.g. 16:00 or 6pm"></div>'+
+'<div class="field"><label>Chase message <span class="count">(posted at the chase time only if still not done — blank = default)</span></label><textarea id="f_chasemsg" placeholder="⏰ Still outstanding: {name} — please action & react ✅.">'+escHtml(t.chase_msg||'')+'</textarea></div>'+
 '<div class="modal-actions"><button class="btn danger" id="mcancel">Cancel</button><button class="btn pri" id="msave">'+(isNew?'Create task':'Save changes')+'</button></div>'+
 '</div></div>';
 document.getElementById('mcancel').onclick=closeEditor;
@@ -281,7 +291,7 @@ document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();
 document.getElementById('msave').onclick=()=>saveEditor(isNew,t.task_id);}
 function closeEditor(){document.getElementById('modal-root').innerHTML='';}
 async function saveEditor(isNew,id){const prev=isNew?null:taskById(id);
-const task={task_id:isNew?'':(id||''),task_name:val('f_name'),time_uk:val('f_time'),owner_role:val('f_owner'),category:val('f_cat'),frequency:val('f_freq'),tool_ref:val('f_tool'),sop_ref:val('f_sop'),form_ref:val('f_form'),what_good_looks_like:val('f_good'),template_msg:val('f_tmpl'),match_key:val('f_mk').toLowerCase(),source:(prev&&prev.source)||'Dashboard'};
+const task={task_id:isNew?'':(id||''),task_name:val('f_name'),time_uk:val('f_time'),owner_role:val('f_owner'),category:val('f_cat'),frequency:val('f_freq'),tool_ref:val('f_tool'),sop_ref:val('f_sop'),form_ref:val('f_form'),what_good_looks_like:val('f_good'),template_msg:val('f_tmpl'),match_key:val('f_mk').toLowerCase(),reminder:val('f_rem'),reminder_time:val('f_remtime'),reminder_days:val('f_remdays'),chase_time:val('f_chase'),reminder_msg:val('f_remmsg'),chase_msg:val('f_chasemsg'),source:(prev&&prev.source)||'Dashboard'};
 if(!task.task_name){toast('Heading is required');return;}
 try{requireEdit();await apiPost({token:AUTH.token,action:isNew?'create':'update',kind:'task',item:task});toast(isNew?'Task created':'Saved');closeEditor();renderManage();render();}catch(e){toast('Error: '+e.message);}}
 /* ---- Resource editor ---- */
@@ -302,6 +312,23 @@ document.getElementById('msave').onclick=()=>saveResEditor(isNew,r.resource_id);
 async function saveResEditor(isNew,id){const res={resource_id:isNew?'':(id||''),name:val('r_name'),type:val('r_type'),url:val('r_url'),notes:val('r_notes')};
 if(!res.name){toast('Name is required');return;}
 try{requireEdit();await apiPost({token:AUTH.token,action:isNew?'create':'update',kind:'resource',item:res});toast(isNew?'Resource created':'Saved');closeEditor();renderManage();render();if(!hidden('v-res'))renderRes();}catch(e){toast('Error: '+e.message);}}
+/* ---- Danger zone: reset stats ---- */
+function openResetModal(){const root=document.getElementById('modal-root');
+root.innerHTML='<div class="modal-bg" id="mbg"><div class="modal"><h3 style="color:var(--red)">Reset stats</h3>'+
+'<div class="count" style="margin-bottom:10px">This permanently clears the <b>Activity log</b>, <b>History &amp; trends</b>, reminder history and changeover <b>history</b> so you can start fresh after testing. Your tasks, resources, reminder settings, logins and today’s live changeover view are <b>not</b> touched. This can’t be undone.</div>'+
+'<div class="field"><label>Type RESET to confirm</label><input id="r_confirm" placeholder="RESET" autocomplete="off"></div>'+
+'<div class="modal-actions"><button class="btn" id="mcancel">Cancel</button><button class="btn danger" id="mreset">Clear stats</button></div>'+
+'</div></div>';
+document.getElementById('mcancel').onclick=closeEditor;
+document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();};
+document.getElementById('mreset').onclick=doReset;
+const f=document.getElementById('r_confirm');if(f&&f.focus)f.focus();}
+async function doReset(){const el=document.getElementById('r_confirm');const c=el?el.value.trim().toUpperCase():'';
+if(c!=='RESET'){toast('Type RESET to confirm');return;}
+try{requireEdit();const j=await apiPost({token:AUTH.token,action:'reset',scope:'stats'});closeEditor();
+toast('Stats cleared: '+((j.cleared&&j.cleared.length)?j.cleared.join(', '):'nothing to clear'));
+if(typeof loadLog==='function')loadLog();if(!hidden('v-history'))loadHistory();if(!hidden('v-cov'))loadCov();}
+catch(e){toast('Error: '+e.message);}}
 document.getElementById('ver').textContent='site v3 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
 render();loadLog();loadTasks();initAuth();setInterval(()=>{loadLog();},120000);setInterval(render,60000);
 </script></body></html>
