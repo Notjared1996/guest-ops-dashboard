@@ -214,14 +214,14 @@ var ranked=trackable.map(function(t){return {name:t.task_name,miss:missByTask[t.
 var h='<table><tr><th>Task</th><th>Missed</th><th>Expected</th><th>Miss rate</th></tr>';ranked.forEach(function(x){var mr=x.exp?Math.round(x.miss/x.exp*100):0;h+='<tr><td>'+x.name+'</td><td style="font-weight:700;color:'+(x.miss>0?'#b5442e':'#2f8f5b')+'">'+x.miss+'</td><td>'+x.exp+'</td><td>'+mr+'%</td></tr>';});h+='</table>';box.innerHTML=h;
 var dh='<table><tr><th>Day</th><th>Completed</th></tr>';[1,2,3,4,5,6,0].forEach(function(i){if(dowExp[i]===0)return;var p=Math.round(dowDone[i]/dowExp[i]*100);dh+='<tr><td>'+DOW[i]+'</td><td>'+p+'% <span class="count">('+dowDone[i]+'/'+dowExp[i]+')</span></td></tr>';});dh+='</table>';dowB.innerHTML=dh;
 var rh='<table><tr><th>Date</th><th>Done</th><th>Missed tasks</th></tr>';recent.slice(-14).reverse().forEach(function(r){rh+='<tr><td>'+r.dow+' '+r.date+'</td><td>'+r.done+'/'+r.exp+'</td><td style="color:'+(r.missed.length?'#b5442e':'#2f8f5b')+'">'+(r.missed.length?r.missed.join(', '):'— all done')+'</td></tr>';});rh+='</table>';recB.innerHTML=rh;}
-document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['today','cov','pay','log','history','res','all','manage'].forEach(v=>document.getElementById('v-'+v).classList.add('hide'));document.getElementById('v-'+b.dataset.v).classList.remove('hide');const v=b.dataset.v;if(v==='cov')loadCov();if(v==='pay')loadPayments();if(v==='log')renderLog();if(v==='history')loadHistory();if(v==='res')renderRes();if(v==='all')renderAll();if(v==='manage'){renderManage();loadTasks();}}));
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['today','cov','pay','log','history','res','all','manage'].forEach(v=>document.getElementById('v-'+v).classList.add('hide'));document.getElementById('v-'+b.dataset.v).classList.remove('hide');const v=b.dataset.v;if(v==='cov')loadCov();if(v==='pay')loadPayments();if(v==='log')renderLog();if(v==='history')loadHistory();if(v==='res')renderRes();if(v==='all')renderAll();if(v==='manage')ensureManageAccess();}));
 /* ===== Task manager: live load, Google Sign-In, create/edit/delete ===== */
 const CATS=['Handover','Dashboard','Guest Comms','Changeover','Finance','Quality','Knowledge','Reporting','Reporting'];
 const FREQS=['Daily','Daily incl. weekends','Daily (Mon backlog)','Continuous','Daily until closed','Per event','Per checkout','Weekly','Weekly (Mon)','Monthly'];
 const TASK_FIELDS=['task_id','task_name','category','frequency','time_uk','owner_role','tool_ref','sop_ref','form_ref','source','what_good_looks_like','match_key','template_msg','reminder','reminder_time','reminder_days','chase_time','reminder_msg','chase_msg'];
 function remOn(t){return ['yes','y','true','1','x','on','✓','✔'].indexOf(String(t.reminder||'').trim().toLowerCase())>=0;}
 const RES_FIELDS=['resource_id','name','type','url','notes'];
-const AUTH={token:null,email:null,name:null};
+const AUTH={token:null,email:null,name:null,adminToken:null};
 const apiState={reachable:false,taskCount:null,resCount:null};
 let manageTab='tasks';
 function toast(m){const d=document.createElement('div');d.className='toast';d.textContent=m;document.body.appendChild(d);setTimeout(()=>d.remove(),2000);}
@@ -238,7 +238,12 @@ if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.write
 function gateShow(){const g=document.getElementById('gate');if(g)g.classList.remove('hide');document.body.classList.add('locked');}
 function gateHide(){const g=document.getElementById('gate');if(g)g.classList.add('hide');document.body.classList.remove('locked');}
 function afterAuth(){document.getElementById('who').textContent=AUTH.name?('Signed in · '+AUTH.name):'';document.getElementById('signin').classList.add('hide');document.getElementById('signout').classList.remove('hide');gateHide();if(!hidden('v-manage'))renderManage();if(!hidden('v-pay'))loadPayments();}
-function initAuth(){if(!CONFIG.TASKS_API){gateHide();return;}try{const t=localStorage.getItem('gops_token'),n=localStorage.getItem('gops_name'),x=+(localStorage.getItem('gops_exp')||0);if(t&&(!x||Date.now()<x)){AUTH.token=t;AUTH.name=n||'';AUTH.email=n||'';afterAuth();return;}}catch(e){}gateShow();}
+function setAdminToken(t){AUTH.adminToken=t;try{localStorage.setItem('gops_admin',t);localStorage.setItem('gops_admin_exp',String(Date.now()+12*3600*1000));}catch(e){}}
+function clearAdminToken(){AUTH.adminToken=null;try{localStorage.removeItem('gops_admin');localStorage.removeItem('gops_admin_exp');}catch(e){}}
+function requireAdmin(){if(!CONFIG.TASKS_API)throw new Error('Task API not connected yet');if(!AUTH.adminToken)throw new Error('Unlock Manage first');}
+function initAuth(){if(!CONFIG.TASKS_API){gateHide();return;}try{const at=localStorage.getItem('gops_admin'),ax=+(localStorage.getItem('gops_admin_exp')||0);if(at&&(!ax||Date.now()<ax))AUTH.adminToken=at;const t=localStorage.getItem('gops_token'),n=localStorage.getItem('gops_name'),x=+(localStorage.getItem('gops_exp')||0);if(t&&(!x||Date.now()<x)){AUTH.token=t;AUTH.name=n||'';AUTH.email=n||'';afterAuth();return;}}catch(e){}gateShow();}
+async function ensureManageAccess(){loadTasks();if(AUTH.adminToken){renderManage();return;}try{const j=await apiPost({action:'unlock_admin',token:AUTH.token,code:''});if(j.adminToken)setAdminToken(j.adminToken);}catch(e){}renderManage();}
+async function unlockManage(){const el=document.getElementById('mcode'),err=document.getElementById('mcode_err');const code=el?el.value:'';if(err)err.textContent='Checking…';try{const j=await apiPost({action:'unlock_admin',token:AUTH.token,code:code});if(j.adminToken){setAdminToken(j.adminToken);if(err)err.textContent='';toast('Manage unlocked');renderManage();loadTasks();}else{if(err)err.textContent='Incorrect code';}}catch(e){if(err)err.textContent=e.message||'Incorrect code';}}
 async function gateLogin(){const uEl=document.getElementById('g_user'),pEl=document.getElementById('g_pass'),err=document.getElementById('g_err');const u=((uEl&&uEl.value)||'').trim(),p=(pEl&&pEl.value)||'';if(err)err.textContent='';if(!u||!p){if(err)err.textContent='Enter your username and password.';return;}if(!CONFIG.TASKS_API){if(err)err.textContent='No sign-in backend is configured.';return;}if(err)err.textContent='Signing in…';try{const j=await apiPost({action:'login',username:u,password:p});AUTH.token=j.token;AUTH.name=j.name||u;AUTH.email=j.name||u;try{localStorage.setItem('gops_token',j.token);localStorage.setItem('gops_name',AUTH.name);localStorage.setItem('gops_exp',String(Date.now()+12*3600*1000));}catch(e){}if(err)err.textContent='';afterAuth();}catch(e){if(err)err.textContent=e.message||'Sign in failed';}}
 function openLogin(){const root=document.getElementById('modal-root');root.innerHTML='<div class="modal-bg" id="mbg"><div class="modal"><h3>Sign in</h3>'+
 (CONFIG.TASKS_API?'':'<div class="count" style="margin-bottom:8px">⚠ Task API not connected yet — sign-in won’t work until CONFIG.TASKS_API is set.</div>')+
@@ -256,7 +261,7 @@ if(!CONFIG.TASKS_API){toast('Task API not connected yet');return;}
 try{const j=await apiPost({action:'login',username:u,password:p});AUTH.token=j.token;AUTH.name=j.name||u;AUTH.email=j.name||u;
 try{localStorage.setItem('gops_token',j.token);localStorage.setItem('gops_name',AUTH.name);localStorage.setItem('gops_exp',String(Date.now()+12*3600*1000));}catch(e){}
 closeEditor();afterAuth();toast('Signed in');}catch(e){toast(e.message||'Sign in failed');}}
-function signOut(){AUTH.token=null;AUTH.email=null;AUTH.name=null;try{localStorage.removeItem('gops_token');localStorage.removeItem('gops_name');localStorage.removeItem('gops_exp');}catch(e){}document.getElementById('who').textContent='';document.getElementById('signin').classList.remove('hide');document.getElementById('signout').classList.add('hide');if(!hidden('v-manage'))renderManage();const gp=document.getElementById('g_pass');if(gp)gp.value='';const ge=document.getElementById('g_err');if(ge)ge.textContent='';gateShow();}
+function signOut(){AUTH.token=null;AUTH.email=null;AUTH.name=null;clearAdminToken();try{localStorage.removeItem('gops_token');localStorage.removeItem('gops_name');localStorage.removeItem('gops_exp');}catch(e){}document.getElementById('who').textContent='';document.getElementById('signin').classList.remove('hide');document.getElementById('signout').classList.add('hide');if(!hidden('v-manage'))renderManage();const gp=document.getElementById('g_pass');if(gp)gp.value='';const ge=document.getElementById('g_err');if(ge)ge.textContent='';gateShow();}
 document.getElementById('signin').addEventListener('click',openLogin);
 document.getElementById('signout').addEventListener('click',signOut);
 document.getElementById('g_btn').addEventListener('click',gateLogin);
@@ -269,8 +274,13 @@ function requireEdit(){if(!CONFIG.TASKS_API)throw new Error('Task API not connec
 /* ---- Manage view ---- */
 function wireSeg(){const a=document.getElementById('seg-tasks'),b=document.getElementById('seg-res');if(a)a.onclick=()=>{manageTab='tasks';renderManage();};if(b)b.onclick=()=>{manageTab='res';renderManage();};}
 function renderManage(){const authd=document.getElementById('mng-auth'),note=document.getElementById('mng-note');
-const canEdit=!!(CONFIG.TASKS_API&&AUTH.token);
 const st=document.getElementById('seg-tasks'),sr=document.getElementById('seg-res');if(st)st.classList.toggle('active',manageTab==='tasks');if(sr)sr.classList.toggle('active',manageTab==='res');
+const signedIn=!!(CONFIG.TASKS_API&&AUTH.token);
+if(signedIn&&!AUTH.adminToken){authd.innerHTML='';note.textContent='';const dz0=document.getElementById('mng-danger');if(dz0)dz0.innerHTML='';
+document.getElementById('mng-box').innerHTML='<div class="res-group" style="max-width:440px"><h3>🔒 Manage is locked</h3><div class="count" style="margin:6px 0 10px">Enter the Manage code to edit tasks, resources, reminders and settings.</div><div class="field"><input id="mcode" type="password" placeholder="Manage code" autocomplete="off"></div><div style="display:flex;gap:8px;align-items:center"><button class="btn pri" id="munlock">Unlock</button><span class="count" id="mcode_err"></span></div></div>';
+const mb=document.getElementById('munlock');if(mb)mb.onclick=unlockManage;const mc=document.getElementById('mcode');if(mc){mc.addEventListener('keydown',function(e){if(e.key==='Enter')unlockManage();});if(mc.focus)mc.focus();}
+wireSeg();return;}
+const canEdit=!!(CONFIG.TASKS_API&&AUTH.adminToken);
 let ctrl='';
 if(canEdit){
 if(manageTab==='tasks'){ctrl='<button class="btn pri" id="newtask">+ New task</button>';if(apiState.reachable&&apiState.taskCount===0)ctrl+=' <button class="btn" id="seedbtn">Seed built-in '+DATA.tasks.length+' tasks</button>';}
@@ -303,8 +313,8 @@ if(canEdit){const nr=document.getElementById('newres');if(nr)nr.onclick=()=>open
 const sb=document.getElementById('seedresbtn');if(sb)sb.onclick=seedResources;
 box.querySelectorAll('[data-eres]').forEach(b=>b.onclick=()=>openResEditor(resById(b.getAttribute('data-eres'))));
 box.querySelectorAll('[data-dres]').forEach(b=>b.onclick=()=>delRes(b.getAttribute('data-dres')));}}
-async function seedTasks(){try{requireEdit();if(!confirm('Add the built-in '+DATA.tasks.length+' tasks to the shared sheet? Only works while the Tasks tab is empty.'))return;const j=await apiPost({token:AUTH.token,action:'seed',kind:'task',items:DATA.tasks.map(normTask)});toast('Seeded '+(j.seeded||0)+' tasks');renderManage();render();}catch(e){toast('Error: '+e.message);}}
-async function delTask(id){const t=taskById(id);if(!t)return;try{requireEdit();}catch(e){toast(e.message);return;}if(!confirm('Delete "'+t.task_name+'" ('+id+')? This removes it for everyone.'))return;try{await apiPost({token:AUTH.token,action:'delete',kind:'task',item:{task_id:id}});toast('Deleted');renderManage();render();}catch(e){toast('Error: '+e.message);}}
+async function seedTasks(){try{requireAdmin();if(!confirm('Add the built-in '+DATA.tasks.length+' tasks to the shared sheet? Only works while the Tasks tab is empty.'))return;const j=await apiPost({token:AUTH.adminToken,action:'seed',kind:'task',items:DATA.tasks.map(normTask)});toast('Seeded '+(j.seeded||0)+' tasks');renderManage();render();}catch(e){toast('Error: '+e.message);}}
+async function delTask(id){const t=taskById(id);if(!t)return;try{requireAdmin();}catch(e){toast(e.message);return;}if(!confirm('Delete "'+t.task_name+'" ('+id+')? This removes it for everyone.'))return;try{await apiPost({token:AUTH.adminToken,action:'delete',kind:'task',item:{task_id:id}});toast('Deleted');renderManage();render();}catch(e){toast('Error: '+e.message);}}
 /* ---- Editor modal ---- */
 function optList(list,sel){const seen={};return list.filter(x=>{if(seen[x])return false;seen[x]=1;return true;}).map(x=>'<option'+(x===sel?' selected':'')+'>'+escHtml(x)+'</option>').join('');}
 function resOptions(sel){let o='<option value="">— none —</option>';DATA.resources.forEach(r=>{o+='<option value="'+esc(r.resource_id)+'"'+(sel===r.resource_id?' selected':'')+'>'+escHtml(r.resource_id+' · '+r.name)+'</option>';});return o;}
@@ -337,10 +347,10 @@ function closeEditor(){document.getElementById('modal-root').innerHTML='';}
 async function saveEditor(isNew,id){const prev=isNew?null:taskById(id);
 const task={task_id:isNew?'':(id||''),task_name:val('f_name'),time_uk:val('f_time'),owner_role:val('f_owner'),category:val('f_cat'),frequency:val('f_freq'),tool_ref:val('f_tool'),sop_ref:val('f_sop'),form_ref:val('f_form'),what_good_looks_like:val('f_good'),template_msg:val('f_tmpl'),match_key:val('f_mk').toLowerCase(),reminder:val('f_rem'),reminder_time:val('f_remtime'),reminder_days:val('f_remdays'),chase_time:val('f_chase'),reminder_msg:val('f_remmsg'),chase_msg:val('f_chasemsg'),source:(prev&&prev.source)||'Dashboard'};
 if(!task.task_name){toast('Heading is required');return;}
-try{requireEdit();await apiPost({token:AUTH.token,action:isNew?'create':'update',kind:'task',item:task});toast(isNew?'Task created':'Saved');closeEditor();renderManage();render();}catch(e){toast('Error: '+e.message);}}
+try{requireAdmin();await apiPost({token:AUTH.adminToken,action:isNew?'create':'update',kind:'task',item:task});toast(isNew?'Task created':'Saved');closeEditor();renderManage();render();}catch(e){toast('Error: '+e.message);}}
 /* ---- Resource editor ---- */
-async function seedResources(){try{requireEdit();if(!confirm('Add the built-in '+DATA.resources.length+' resources to the shared sheet? Only works while the Resources tab is empty.'))return;const j=await apiPost({token:AUTH.token,action:'seed',kind:'resource',items:DATA.resources.map(normRes)});toast('Seeded '+(j.seeded||0)+' resources');renderManage();render();}catch(e){toast('Error: '+e.message);}}
-async function delRes(id){const r=resById(id);if(!r)return;try{requireEdit();}catch(e){toast(e.message);return;}const used=DATA.tasks.filter(t=>t.tool_ref===id||t.sop_ref===id||t.form_ref===id).length;const warn=used?(' It is linked to '+used+' task'+(used>1?'s':'')+' — those links will go blank until re-pointed.'):'';if(!confirm('Delete resource "'+(r.name||id)+'" ('+id+')?'+warn))return;try{await apiPost({token:AUTH.token,action:'delete',kind:'resource',item:{resource_id:id}});toast('Resource deleted');renderManage();render();if(!hidden('v-res'))renderRes();}catch(e){toast('Error: '+e.message);}}
+async function seedResources(){try{requireAdmin();if(!confirm('Add the built-in '+DATA.resources.length+' resources to the shared sheet? Only works while the Resources tab is empty.'))return;const j=await apiPost({token:AUTH.adminToken,action:'seed',kind:'resource',items:DATA.resources.map(normRes)});toast('Seeded '+(j.seeded||0)+' resources');renderManage();render();}catch(e){toast('Error: '+e.message);}}
+async function delRes(id){const r=resById(id);if(!r)return;try{requireAdmin();}catch(e){toast(e.message);return;}const used=DATA.tasks.filter(t=>t.tool_ref===id||t.sop_ref===id||t.form_ref===id).length;const warn=used?(' It is linked to '+used+' task'+(used>1?'s':'')+' — those links will go blank until re-pointed.'):'';if(!confirm('Delete resource "'+(r.name||id)+'" ('+id+')?'+warn))return;try{await apiPost({token:AUTH.adminToken,action:'delete',kind:'resource',item:{resource_id:id}});toast('Resource deleted');renderManage();render();if(!hidden('v-res'))renderRes();}catch(e){toast('Error: '+e.message);}}
 function openResEditor(r){const isNew=!r;r=r||{};const root=document.getElementById('modal-root');
 const types=[...new Set(DATA.resources.map(x=>x.type).filter(Boolean))];
 root.innerHTML='<div class="modal-bg" id="mbg"><div class="modal"><h3>'+(isNew?'New resource':'Edit '+escHtml(r.resource_id||''))+'</h3>'+
@@ -355,7 +365,7 @@ document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();
 document.getElementById('msave').onclick=()=>saveResEditor(isNew,r.resource_id);}
 async function saveResEditor(isNew,id){const res={resource_id:isNew?'':(id||''),name:val('r_name'),type:val('r_type'),url:val('r_url'),notes:val('r_notes')};
 if(!res.name){toast('Name is required');return;}
-try{requireEdit();await apiPost({token:AUTH.token,action:isNew?'create':'update',kind:'resource',item:res});toast(isNew?'Resource created':'Saved');closeEditor();renderManage();render();if(!hidden('v-res'))renderRes();}catch(e){toast('Error: '+e.message);}}
+try{requireAdmin();await apiPost({token:AUTH.adminToken,action:isNew?'create':'update',kind:'resource',item:res});toast(isNew?'Resource created':'Saved');closeEditor();renderManage();render();if(!hidden('v-res'))renderRes();}catch(e){toast('Error: '+e.message);}}
 /* ---- Danger zone: reset stats ---- */
 function openResetModal(){const root=document.getElementById('modal-root');
 root.innerHTML='<div class="modal-bg" id="mbg"><div class="modal"><h3 style="color:var(--red)">Reset stats</h3>'+
@@ -369,7 +379,7 @@ document.getElementById('mreset').onclick=doReset;
 const f=document.getElementById('r_confirm');if(f&&f.focus)f.focus();}
 async function doReset(){const el=document.getElementById('r_confirm');const c=el?el.value.trim().toUpperCase():'';
 if(c!=='RESET'){toast('Type RESET to confirm');return;}
-try{requireEdit();const j=await apiPost({token:AUTH.token,action:'reset',scope:'stats'});closeEditor();
+try{requireAdmin();const j=await apiPost({token:AUTH.adminToken,action:'reset',scope:'stats'});closeEditor();
 toast('Stats cleared: '+((j.cleared&&j.cleared.length)?j.cleared.join(', '):'nothing to clear'));
 if(typeof loadLog==='function')loadLog();if(!hidden('v-history'))loadHistory();if(!hidden('v-cov'))loadCov();}
 catch(e){toast('Error: '+e.message);}}
@@ -431,6 +441,6 @@ document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();
 document.getElementById('mtmpl').onclick=saveTemplate;}
 async function saveTemplate(){const el=document.getElementById('tmpl_text');const t=el?el.value:'';try{requireEdit();const j=await apiPost({token:AUTH.token,action:'payment_template',template:t});PAY.template=(j.template!==undefined)?j.template:t;closeEditor();renderPayments();toast('Template saved');}catch(e){toast('Error: '+e.message);}}
 document.getElementById('pay-filter').addEventListener('change',e=>{payFilter=e.target.value;renderPayments();});
-document.getElementById('ver').textContent='site v8 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
+document.getElementById('ver').textContent='site v9 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
 render();loadLog();loadTasks();initAuth();setInterval(()=>{loadLog();},120000);setInterval(render,60000);
 </script></body></html>
