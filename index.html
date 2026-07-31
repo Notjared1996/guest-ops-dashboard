@@ -89,11 +89,12 @@ body.locked{overflow:hidden}
 <header><div><div class="t">Unplugged · Guest Ops Live Dashboard</div><div class="sub">Today's rhythm · react ✅ in Slack to complete</div></div>
 <div class="authbox"><span class="who" id="who"></span><button class="btn sm" id="signin">Sign in</button><button class="btn sm hide" id="signout">Sign out</button>
 <div class="clock"><div class="time" id="clk">--:--</div><div class="day" id="dow">UK</div></div></div></header>
-<nav><button data-v="today" class="active">Today</button><button data-v="cov">Changeover forms</button><button data-v="pay">Payments</button><button data-v="log">Activity log</button><button data-v="history">History</button><button data-v="res">Resources</button><button data-v="all">All tasks</button><button data-v="manage">Manage</button></nav>
+<nav><button data-v="today" class="active">Today</button><button data-v="cov">Changeover forms</button><button data-v="pay">Payments</button><button data-v="book">Booking alerts</button><button data-v="log">Activity log</button><button data-v="history">History</button><button data-v="res">Resources</button><button data-v="all">All tasks</button><button data-v="manage">Manage</button></nav>
 <main>
 <section id="v-today"><h2 id="today-h">Today</h2><div class="bar"><span id="prog"></span></div><div class="count" id="progc"></div>
 <div id="due"></div><h2>Later today</h2><div id="later"></div><h2>Ongoing</h2><div id="ongoing"></div></section>
 <section id="v-pay" class="hide"><h2>Payments to chase</h2><div class="count">Deposit-only / part-paid bookings from the Payments Due sheet. Once a balance clears it leaves the sheet and drops off here automatically.</div><div id="pay-cards" class="cards"></div><div class="manage-head" style="margin-top:8px"><select class="filter" id="pay-filter"><option value="">All</option><option value="review">Needs review</option><option value="followup">Needs follow-up</option><option value="plan">On payment plan</option></select><span id="pay-admin"></span></div><div id="pay-list"><div class="spin">Loading…</div></div></section>
+<section id="v-book" class="hide"><h2>Booking notifications</h2><div class="count">Watches the live Bookings feed for clashes — two stays in the same cabin whose dates collide. Covers current &amp; upcoming bookings (checkout today or later). Refreshes each time you open this tab.</div><div id="book-cards" class="cards"></div><div id="book-list"><div class="spin">Loading…</div></div></section>
 <section id="v-log" class="hide"><h2>Activity log — what's been actioned</h2><div class="count">Every ✅ reaction in #guest-ops-dashboard, newest first.</div><div id="logbox"><div class="spin">Loading…</div></div></section>
 <section id="v-cov" class="hide"><h2>Changeover forms — today</h2><div class="count">Cabins with a changeover today vs cleaner feedback forms received. Overdue after 3pm UK.</div><div id="cov-cards" class="cards"></div><div class="manage-head" style="margin-top:10px"><div class="seg"><button class="segbtn active" id="cseg-out">Outstanding</button><button class="segbtn" id="cseg-rec">Received</button></div></div><div id="cov-chase"><div class="spin">Loading…</div></div></section>
 <section id="v-history" class="hide"><h2>History &amp; trends</h2><div class="count">Built from the ✅ log since tracking began (today is excluded until it's a full day). Counts the ✅-tracked reminder tasks.</div><div id="hist-cards" class="cards"></div><h2>Most-missed tasks</h2><div id="hist-box"><div class="spin">Loading…</div></div><h2>By day of week</h2><div id="hist-dow"></div><h2>Recent days</h2><div id="hist-recent"></div></section>
@@ -214,7 +215,7 @@ var ranked=trackable.map(function(t){return {name:t.task_name,miss:missByTask[t.
 var h='<table><tr><th>Task</th><th>Missed</th><th>Expected</th><th>Miss rate</th></tr>';ranked.forEach(function(x){var mr=x.exp?Math.round(x.miss/x.exp*100):0;h+='<tr><td>'+x.name+'</td><td style="font-weight:700;color:'+(x.miss>0?'#b5442e':'#2f8f5b')+'">'+x.miss+'</td><td>'+x.exp+'</td><td>'+mr+'%</td></tr>';});h+='</table>';box.innerHTML=h;
 var dh='<table><tr><th>Day</th><th>Completed</th></tr>';[1,2,3,4,5,6,0].forEach(function(i){if(dowExp[i]===0)return;var p=Math.round(dowDone[i]/dowExp[i]*100);dh+='<tr><td>'+DOW[i]+'</td><td>'+p+'% <span class="count">('+dowDone[i]+'/'+dowExp[i]+')</span></td></tr>';});dh+='</table>';dowB.innerHTML=dh;
 var rh='<table><tr><th>Date</th><th>Done</th><th>Missed tasks</th></tr>';recent.slice(-14).reverse().forEach(function(r){rh+='<tr><td>'+r.dow+' '+r.date+'</td><td>'+r.done+'/'+r.exp+'</td><td style="color:'+(r.missed.length?'#b5442e':'#2f8f5b')+'">'+(r.missed.length?r.missed.join(', '):'— all done')+'</td></tr>';});rh+='</table>';recB.innerHTML=rh;}
-document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['today','cov','pay','log','history','res','all','manage'].forEach(v=>document.getElementById('v-'+v).classList.add('hide'));document.getElementById('v-'+b.dataset.v).classList.remove('hide');const v=b.dataset.v;if(v==='cov')loadCov();if(v==='pay')loadPayments();if(v==='log')renderLog();if(v==='history')loadHistory();if(v==='res')renderRes();if(v==='all')renderAll();if(v==='manage')ensureManageAccess();}));
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['today','cov','pay','book','log','history','res','all','manage'].forEach(v=>document.getElementById('v-'+v).classList.add('hide'));document.getElementById('v-'+b.dataset.v).classList.remove('hide');const v=b.dataset.v;if(v==='cov')loadCov();if(v==='pay')loadPayments();if(v==='book')loadBookings();if(v==='log')renderLog();if(v==='history')loadHistory();if(v==='res')renderRes();if(v==='all')renderAll();if(v==='manage')ensureManageAccess();}));
 /* ===== Task manager: live load, Google Sign-In, create/edit/delete ===== */
 const CATS=['Handover','Dashboard','Guest Comms','Changeover','Finance','Quality','Knowledge','Reporting','Reporting'];
 const FREQS=['Daily','Daily incl. weekends','Daily (Mon backlog)','Continuous','Daily until closed','Per event','Per checkout','Weekly','Weekly (Mon)','Monthly'];
@@ -383,6 +384,35 @@ try{requireAdmin();const j=await apiPost({token:AUTH.adminToken,action:'reset',s
 toast('Stats cleared: '+((j.cleared&&j.cleared.length)?j.cleared.join(', '):'nothing to clear'));
 if(typeof loadLog==='function')loadLog();if(!hidden('v-history'))loadHistory();if(!hidden('v-cov'))loadCov();}
 catch(e){toast('Error: '+e.message);}}
+/* ---- Booking notifications (double-booking detection) ---- */
+let BOOK={overlaps:[],same_day:[],counts:{},generated_at:''};
+async function loadBookings(){const list=document.getElementById('book-list'),cards=document.getElementById('book-cards');
+if(!CONFIG.TASKS_API){cards.innerHTML='';list.innerHTML='<div class="hint">Connect the Tasks API to show booking alerts (see TASKS_SETUP.md).</div>';return;}
+if(!AUTH.token){cards.innerHTML='';list.innerHTML='<div class="hint">Please sign in to view booking alerts.</div>';return;}
+cards.innerHTML='';list.innerHTML='<div class="spin">Checking the bookings feed…</div>';
+try{const sep=CONFIG.TASKS_API.indexOf('?')>=0?'&':'?';const r=await fetch(CONFIG.TASKS_API+sep+'action=booking_alerts&token='+encodeURIComponent(AUTH.token||'')+'&_='+Date.now(),{cache:'no-store'});const j=await r.json();
+if(j&&j.ok){BOOK.overlaps=j.overlaps||[];BOOK.same_day=j.same_day||[];BOOK.counts=j.counts||{};BOOK.generated_at=j.generated_at||'';renderBookings();}
+else{cards.innerHTML='';list.innerHTML='<div class="hint">Could not load booking alerts'+(j&&j.error?': '+escHtml(j.error):'')+'</div>';}}
+catch(e){cards.innerHTML='';list.innerHTML='<div class="hint">Could not load booking alerts.</div>';}}
+function bkPair(o){const g=b=>[b.guest,(b.guests?b.guests+' guest'+(b.guests==1?'':'s'):''),(b.ref?'ref '+b.ref:'')].filter(Boolean).join(' · ');
+return '<div class="good"><b>'+escHtml(o.a.check_in)+' → '+escHtml(o.a.check_out)+'</b>'+(g(o.a)?' · '+escHtml(g(o.a)):'')+'</div>'+
+'<div class="good"><b>'+escHtml(o.b.check_in)+' → '+escHtml(o.b.check_out)+'</b>'+(g(o.b)?' · '+escHtml(g(o.b)):'')+'</div>';}
+function overlapCard(o){const n=o.nights||0;
+return '<div class="card" style="border-color:#e6c3ba;background:#fdf3f0"><div class="badge2">⛔</div><div class="body"><div class="row1"><span class="name">'+escHtml(o.cabin)+'</span> <span class="tag" style="background:#fbeeea;color:#b5442e;border-color:#e6c3ba;font-weight:700">Double booking · '+n+' night'+(n==1?'':'s')+' overlap</span></div>'+bkPair(o)+'</div></div>';}
+function sameDayCard(o){
+return '<div class="card up"><div class="badge2">🔁</div><div class="body"><div class="row1"><span class="name">'+escHtml(o.cabin)+'</span> <span class="tag">Same-day changeover</span></div>'+bkPair(o)+'</div></div>';}
+function renderBookings(){const cards=document.getElementById('book-cards'),list=document.getElementById('book-list');const c=BOOK.counts||{};
+cards.innerHTML='<div class="stat '+(BOOK.overlaps.length?'red':'green')+'"><div class="n">'+BOOK.overlaps.length+'</div><div class="l">double bookings</div></div>'+
+'<div class="stat"><div class="n">'+BOOK.same_day.length+'</div><div class="l">same-day changeovers</div></div>'+
+'<div class="stat"><div class="n">'+(c.upcoming_bookings||0)+'</div><div class="l">upcoming bookings</div></div>'+
+'<div class="stat"><div class="n">'+(c.cabins||0)+'</div><div class="l">cabins</div></div>';
+let h='';
+if(!BOOK.overlaps.length){h+='<div class="hint">✅ No double bookings across current &amp; upcoming stays. Every cabin is clash-free.</div>';}
+else{h+='<h2 style="color:var(--red)">⛔ Double bookings — action needed</h2><div class="count" style="margin-bottom:4px">Two stays booked into the same cabin on overlapping dates. Check Easol and resolve.</div>'+BOOK.overlaps.map(overlapCard).join('');}
+if(BOOK.same_day.length){h+='<h2 style="margin-top:16px">🔁 Same-day changeovers</h2><div class="count" style="margin-bottom:6px">One guest checks out the day the next checks in — normal turnarounds, not clashes. <button class="btn sm" id="sd-toggle">Show '+BOOK.same_day.length+'</button></div><div id="sd-list" class="hide">'+BOOK.same_day.map(sameDayCard).join('')+'</div>';}
+if(BOOK.generated_at)h+='<div class="count" style="margin-top:12px">Checked '+escHtml(BOOK.generated_at)+' UK · reopen the tab to refresh.</div>';
+list.innerHTML=h;
+const sdt=document.getElementById('sd-toggle');if(sdt)sdt.onclick=()=>{const el=document.getElementById('sd-list');if(!el)return;const wasHidden=el.classList.contains('hide');el.classList.toggle('hide');sdt.textContent=wasHidden?'Hide':'Show '+BOOK.same_day.length;};}
 /* ---- Payments to chase ---- */
 let PAY={bookings:[],template:''},payFilter='';
 function copyText(txt,okMsg){if(!txt){toast('Nothing to copy');return;}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast(okMsg||'Copied'),()=>toast('Copy failed'));}else{const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast(okMsg||'Copied');}catch(e){toast('Copy failed');}ta.remove();}}
@@ -441,6 +471,6 @@ document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();
 document.getElementById('mtmpl').onclick=saveTemplate;}
 async function saveTemplate(){const el=document.getElementById('tmpl_text');const t=el?el.value:'';try{requireEdit();const j=await apiPost({token:AUTH.token,action:'payment_template',template:t});PAY.template=(j.template!==undefined)?j.template:t;closeEditor();renderPayments();toast('Template saved');}catch(e){toast('Error: '+e.message);}}
 document.getElementById('pay-filter').addEventListener('change',e=>{payFilter=e.target.value;renderPayments();});
-document.getElementById('ver').textContent='site v9 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
+document.getElementById('ver').textContent='site v10 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
 render();loadLog();loadTasks();initAuth();setInterval(()=>{loadLog();},120000);setInterval(render,60000);
 </script></body></html>
