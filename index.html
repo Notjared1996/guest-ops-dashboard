@@ -415,13 +415,13 @@ if(BOOK.generated_at)h+='<div class="count" style="margin-top:12px">Checked '+es
 list.innerHTML=h;
 const sdt=document.getElementById('sd-toggle');if(sdt)sdt.onclick=()=>{const el=document.getElementById('sd-list');if(!el)return;const wasHidden=el.classList.contains('hide');el.classList.toggle('hide');sdt.textContent=wasHidden?'Hide':'Show '+BOOK.same_day.length;};}
 /* ---- Blocked-cabin monitor ---- */
-let BLK={collisions:[],active:[],review:[],counts:{},generated_at:''};
+let BLK={collisions:[],active:[],review:[],formula_gaps:[],formula_meta:{},counts:{},generated_at:''};
 async function loadBlocks(){const list=document.getElementById('blk-list'),cards=document.getElementById('blk-cards');
 if(!CONFIG.TASKS_API){cards.innerHTML='';list.innerHTML='<div class="hint">Connect the Tasks API to show blocks (see TASKS_SETUP.md).</div>';return;}
 if(!AUTH.token){cards.innerHTML='';list.innerHTML='<div class="hint">Please sign in to view blocks.</div>';return;}
 cards.innerHTML='';list.innerHTML='<div class="spin">Checking the bookings feed for blocks…</div>';
 try{const sep=CONFIG.TASKS_API.indexOf('?')>=0?'&':'?';const r=await fetch(CONFIG.TASKS_API+sep+'action=blocks&token='+encodeURIComponent(AUTH.token||'')+'&_='+Date.now(),{cache:'no-store'});const j=await r.json();
-if(j&&j.ok){BLK.collisions=j.collisions||[];BLK.active=j.active||[];BLK.review=j.review||[];BLK.counts=j.counts||{};BLK.generated_at=j.generated_at||'';renderBlocks();}
+if(j&&j.ok){BLK.collisions=j.collisions||[];BLK.active=j.active||[];BLK.review=j.review||[];BLK.formula_gaps=j.formula_gaps||[];BLK.formula_meta=j.formula_meta||{};BLK.counts=j.counts||{};BLK.generated_at=j.generated_at||'';renderBlocks();}
 else{cards.innerHTML='';list.innerHTML='<div class="hint">Could not load blocks'+(j&&j.error?': '+escHtml(j.error):'')+'</div>';}}
 catch(e){cards.innerHTML='';list.innerHTML='<div class="hint">Could not load blocks.</div>';}}
 function blkLine(b){return [b.cabin,(b.note?b.note:''),(b.info?b.info:''),(b.ref?'ref '+b.ref:'')].filter(Boolean).map(escHtml).join(' · ');}
@@ -435,12 +435,16 @@ function reviewCard(r){const b=r.block;
 return '<div class="card"><div class="badge2">⚠</div><div class="body"><div class="row1"><span class="name">'+escHtml(b.cabin)+'</span> <span class="tag" style="background:#fbf3e6;color:#b0663a;border-color:#e6cfa9">'+escHtml(r.why)+'</span></div><div class="good">'+escHtml(b.check_in)+' → '+escHtml(b.check_out)+' · '+b.nights+' night'+(b.nights==1?'':'s')+(b.note?' · '+escHtml(b.note):'')+(b.ref?' · ref '+escHtml(b.ref):'')+'</div>'+blkWho(b)+'</div></div>';}
 function activeCard(b){
 return '<div class="card up"><div class="badge2">🔒</div><div class="body"><div class="row1"><span class="name">'+escHtml(b.cabin)+'</span> <span class="tag">'+escHtml(b.info)+'</span>'+(b.note?' <span class="tag now">'+escHtml(b.note)+'</span>':' <span class="tag" style="background:#fbf3e6;color:#b0663a;border-color:#e6cfa9">no reason</span>')+'</div><div class="good">'+escHtml(b.check_in)+' → '+escHtml(b.check_out)+' · '+b.nights+' night'+(b.nights==1?'':'s')+(b.ref?' · ref '+escHtml(b.ref):'')+'</div>'+blkWho(b)+'</div></div>';}
+function gapCard(g){
+return '<div class="card" style="border-color:#e6c3ba;background:#fdf3f0"><div class="badge2">🧮</div><div class="body"><div class="row1"><span class="name">'+escHtml(g.cabin)+'</span> <span class="tag" style="background:#fbeeea;color:#b5442e;border-color:#e6c3ba;font-weight:700">Formula missing · '+(g.value==='(blank)'?'blank cell':'has "'+escHtml(g.value)+'"')+'</span></div><div class="good">'+escHtml(g.check_in)+' → '+escHtml(g.check_out)+' · cell '+escHtml(g.cell)+'</div><div class="good" style="color:var(--red)">Neither BLOCKED nor a formula — restore the formula (drag it back down) so reporting isn’t skewed.</div></div></div>';}
 function renderBlocks(){const cards=document.getElementById('blk-cards'),list=document.getElementById('blk-list');const c=BLK.counts||{};
 cards.innerHTML='<div class="stat '+(BLK.collisions.length?'red':'green')+'"><div class="n">'+BLK.collisions.length+'</div><div class="l">block ↔ booking clashes</div></div>'+
+'<div class="stat '+(BLK.formula_gaps.length?'red':'green')+'"><div class="n">'+BLK.formula_gaps.length+'</div><div class="l">formula gaps</div></div>'+
 '<div class="stat"><div class="n">'+(c.active_blocks||0)+'</div><div class="l">active blocks</div></div>'+
-'<div class="stat '+(BLK.review.length?'amber':'')+'"><div class="n">'+(c.needs_review||0)+'</div><div class="l">need review</div></div>'+
-'<div class="stat"><div class="n">'+(c.cabins_blocked||0)+'</div><div class="l">cabins blocked</div></div>';
+'<div class="stat '+(BLK.review.length?'amber':'')+'"><div class="n">'+(c.needs_review||0)+'</div><div class="l">need review</div></div>';
 let h='';
+if(BLK.formula_meta&&BLK.formula_meta.warning){h+='<div class="hint">🧮 '+escHtml(BLK.formula_meta.warning)+'</div>';}
+else if(BLK.formula_gaps.length){h+='<h2 style="color:var(--red)">🧮 Formula gaps — un-blocked but formula not restored</h2><div class="count" style="margin-bottom:4px">These cabin dates have no formula and aren’t BLOCKED (blank or a stray value) in column '+escHtml((BLK.formula_meta&&BLK.formula_meta.column_letter)||'')+'. Drag the formula back down to fix the reporting.</div>'+BLK.formula_gaps.map(gapCard).join('');}
 if(BLK.collisions.length){h+='<h2 style="color:var(--red)">⛔ Blocks clashing with a booking</h2><div class="count" style="margin-bottom:4px">A BLOCKED entry overlaps a real booking in the same cabin. This is what throws the sheet formulas off — resolve each one.</div>'+BLK.collisions.map(collisionCard).join('');}
 if(BLK.review.length){h+='<h2 style="margin-top:16px">⚠ Needs review</h2><div class="count" style="margin-bottom:4px">Blocks with no reason noted, or blocks whose dates have passed but are still in the sheet (likely forgotten un-blocks).</div>'+BLK.review.map(reviewCard).join('');}
 h+='<h2 style="margin-top:16px">🔒 Active &amp; upcoming blocks</h2>';
@@ -506,6 +510,6 @@ document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();
 document.getElementById('mtmpl').onclick=saveTemplate;}
 async function saveTemplate(){const el=document.getElementById('tmpl_text');const t=el?el.value:'';try{requireEdit();const j=await apiPost({token:AUTH.token,action:'payment_template',template:t});PAY.template=(j.template!==undefined)?j.template:t;closeEditor();renderPayments();toast('Template saved');}catch(e){toast('Error: '+e.message);}}
 document.getElementById('pay-filter').addEventListener('change',e=>{payFilter=e.target.value;renderPayments();});
-document.getElementById('ver').textContent='site v11 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
+document.getElementById('ver').textContent='site v12 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
 render();loadLog();loadTasks();initAuth();setInterval(()=>{loadLog();},120000);setInterval(render,60000);
 </script></body></html>
