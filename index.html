@@ -415,13 +415,13 @@ if(BOOK.generated_at)h+='<div class="count" style="margin-top:12px">Checked '+es
 list.innerHTML=h;
 const sdt=document.getElementById('sd-toggle');if(sdt)sdt.onclick=()=>{const el=document.getElementById('sd-list');if(!el)return;const wasHidden=el.classList.contains('hide');el.classList.toggle('hide');sdt.textContent=wasHidden?'Hide':'Show '+BOOK.same_day.length;};}
 /* ---- Blocked-cabin monitor ---- */
-let BLK={collisions:[],active:[],review:[],formula_gaps:[],formula_meta:{},counts:{},generated_at:''};
+let BLK={collisions:[],active:[],active_total:0,review:[],formula_gaps:[],formula_meta:{},counts:{},generated_at:''};
 async function loadBlocks(){const list=document.getElementById('blk-list'),cards=document.getElementById('blk-cards');
 if(!CONFIG.TASKS_API){cards.innerHTML='';list.innerHTML='<div class="hint">Connect the Tasks API to show blocks (see TASKS_SETUP.md).</div>';return;}
 if(!AUTH.token){cards.innerHTML='';list.innerHTML='<div class="hint">Please sign in to view blocks.</div>';return;}
 cards.innerHTML='';list.innerHTML='<div class="spin">Checking the bookings feed for blocks…</div>';
 try{const sep=CONFIG.TASKS_API.indexOf('?')>=0?'&':'?';const r=await fetch(CONFIG.TASKS_API+sep+'action=blocks&token='+encodeURIComponent(AUTH.token||'')+'&_='+Date.now(),{cache:'no-store'});const j=await r.json();
-if(j&&j.ok){BLK.collisions=j.collisions||[];BLK.active=j.active||[];BLK.review=j.review||[];BLK.formula_gaps=j.formula_gaps||[];BLK.formula_meta=j.formula_meta||{};BLK.counts=j.counts||{};BLK.generated_at=j.generated_at||'';renderBlocks();}
+if(j&&j.ok){BLK.collisions=j.collisions||[];BLK.active=j.active||[];BLK.active_total=(j.active_total!=null?j.active_total:(j.active||[]).length);BLK.review=j.review||[];BLK.formula_gaps=j.formula_gaps||[];BLK.formula_meta=j.formula_meta||{};BLK.counts=j.counts||{};BLK.generated_at=j.generated_at||'';renderBlocks();}
 else{cards.innerHTML='';list.innerHTML='<div class="hint">Could not load blocks'+(j&&j.error?': '+escHtml(j.error):'')+'</div>';}}
 catch(e){cards.innerHTML='';list.innerHTML='<div class="hint">Could not load blocks.</div>';}}
 function blkLine(b){return [b.cabin,(b.note?b.note:''),(b.info?b.info:''),(b.ref?'ref '+b.ref:'')].filter(Boolean).map(escHtml).join(' · ');}
@@ -449,9 +449,10 @@ if(BLK.collisions.length){h+='<h2 style="color:var(--red)">⛔ Blocks clashing w
 if(BLK.review.length){h+='<h2 style="margin-top:16px">⚠ Needs review</h2><div class="count" style="margin-bottom:4px">Blocks with no reason noted, or blocks whose dates have passed but are still in the sheet (likely forgotten un-blocks).</div>'+BLK.review.map(reviewCard).join('');}
 h+='<h2 style="margin-top:16px">🔒 Active &amp; upcoming blocks</h2>';
 if(!BLK.active.length){h+='<div class="hint">No active or upcoming blocks right now.</div>';}
-else{h+='<div class="count" style="margin-bottom:4px">'+BLK.active.length+' block'+(BLK.active.length==1?'':'s')+' currently held, soonest first.</div>'+BLK.active.map(activeCard).join('');}
+else{var tot=BLK.active_total||BLK.active.length;var note=(tot>BLK.active.length)?(' — showing first '+BLK.active.length):'';h+='<div class="count" style="margin-bottom:6px">'+tot+' block'+(tot==1?'':'s')+' currently held'+note+', soonest first. <button class="btn sm" id="blk-active-toggle">Show</button></div><div id="blk-active-list" class="hide">'+BLK.active.map(activeCard).join('')+'</div>';}
 if(BLK.generated_at)h+='<div class="count" style="margin-top:12px">Checked '+escHtml(BLK.generated_at)+' UK · reopen the tab to refresh.</div>';
-list.innerHTML=h;}
+list.innerHTML=h;
+var bat=document.getElementById('blk-active-toggle');if(bat)bat.onclick=function(){var el=document.getElementById('blk-active-list');if(!el)return;var wasHidden=el.classList.contains('hide');el.classList.toggle('hide');bat.textContent=wasHidden?'Hide':'Show';};}
 /* ---- Payments to chase ---- */
 let PAY={bookings:[],template:''},payFilter='';
 function copyText(txt,okMsg){if(!txt){toast('Nothing to copy');return;}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast(okMsg||'Copied'),()=>toast('Copy failed'));}else{const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast(okMsg||'Copied');}catch(e){toast('Copy failed');}ta.remove();}}
@@ -510,6 +511,6 @@ document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();
 document.getElementById('mtmpl').onclick=saveTemplate;}
 async function saveTemplate(){const el=document.getElementById('tmpl_text');const t=el?el.value:'';try{requireEdit();const j=await apiPost({token:AUTH.token,action:'payment_template',template:t});PAY.template=(j.template!==undefined)?j.template:t;closeEditor();renderPayments();toast('Template saved');}catch(e){toast('Error: '+e.message);}}
 document.getElementById('pay-filter').addEventListener('change',e=>{payFilter=e.target.value;renderPayments();});
-document.getElementById('ver').textContent='site v12 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
+document.getElementById('ver').textContent='site v13 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
 render();loadLog();loadTasks();initAuth();setInterval(()=>{loadLog();},120000);setInterval(render,60000);
 </script></body></html>
