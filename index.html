@@ -107,7 +107,7 @@ body.locked{overflow:hidden}
 <div class="manage-head" id="lv-filterbar" style="margin-top:10px"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select class="filter" id="lv_fperson"><option value="">All people</option></select><span class="count">From</span><input class="filter" id="lv_ffrom" type="date" style="width:auto"><span class="count">to</span><input class="filter" id="lv_fto" type="date" style="width:auto"><button class="btn sm" id="lv_fclear">Clear filters</button></div><span id="lv_admin"></span></div>
 <div style="overflow:auto"><div id="leave-list"><div class="spin">Loading…</div></div></div></section>
 <section id="v-log" class="hide"><h2>Activity log — what's been actioned</h2><div class="count">Every ✅ reaction in #guest-ops-dashboard, newest first.</div><div id="logbox"><div class="spin">Loading…</div></div></section>
-<section id="v-cov" class="hide"><h2>Changeover forms — today</h2><div class="count">Cabins with a changeover today vs cleaner feedback forms received. Overdue after 3pm UK.</div><div id="cov-cards" class="cards"></div><div class="manage-head" style="margin-top:10px"><div class="seg"><button class="segbtn active" id="cseg-out">Outstanding</button><button class="segbtn" id="cseg-rec">Received</button></div></div><div id="cov-chase"><div class="spin">Loading…</div></div></section>
+<section id="v-cov" class="hide"><h2>Changeover forms — today</h2><div class="count">Cabins with a changeover today vs cleaner feedback forms received. Overdue after 3pm UK.</div><div id="cov-cards" class="cards"></div><div class="manage-head" style="margin-top:10px"><div class="seg"><button class="segbtn active" id="cseg-out">Outstanding</button><button class="segbtn" id="cseg-rec">Received</button></div><div style="display:flex;gap:8px;align-items:center"><button class="btn sm" id="cov-refresh">↻ Refresh now</button><span class="count" id="cov-refresh-msg"></span></div></div><div id="cov-chase"><div class="spin">Loading…</div></div></section>
 <section id="v-history" class="hide"><h2>History &amp; trends</h2><div class="count">Built from the ✅ log since tracking began (today is excluded until it's a full day). Counts the ✅-tracked reminder tasks.</div><div id="hist-cards" class="cards"></div><h2>Most-missed tasks</h2><div id="hist-box"><div class="spin">Loading…</div></div><h2>By day of week</h2><div id="hist-dow"></div><h2>Recent days</h2><div id="hist-recent"></div></section>
 <section id="v-res" class="hide"><h2>Resource hub</h2><div class="hint" id="res-missing"></div><div id="res-list"></div></section>
 <section id="v-all" class="hide"><h2>All tasks</h2><div><select class="filter" id="f-cat"><option value="">All categories</option></select><select class="filter" id="f-freq"><option value="">All frequencies</option></select></div><div style="overflow:auto"><table id="alltbl"></table></div></section>
@@ -177,10 +177,7 @@ let covRows=null,covTab='out';
 function covStatus(r){return (r.status||r.Status||'').toUpperCase();}
 function covCabin(r){return r.cabin||r.Cabin||'';}
 function wireCovSeg(){const o=document.getElementById('cseg-out'),c=document.getElementById('cseg-rec');if(o)o.onclick=()=>{covTab='out';renderCovList();};if(c)c.onclick=()=>{covTab='rec';renderCovList();};}
-async function loadCov(){const box=document.getElementById('cov-chase');const cards=document.getElementById('cov-cards');
-if(!CONFIG.CHANGEOVER_CSV){cards.innerHTML='';box.innerHTML='<div class="hint">Add your Changeover Tracker published-CSV URL in CONFIG (top of this file) to show changeover form tracking.</div>';return;}
-const data=await fetchCSV(CONFIG.CHANGEOVER_CSV);
-if(!data||data.error){box.innerHTML='<div class="hint">Could not load: '+(data&&data.error?data.error:'')+'</div>';return;}
+function applyCovRows(data){const box=document.getElementById('cov-chase'),cards=document.getElementById('cov-cards');
 covRows=data.filter(r=>{const c=covCabin(r);return c&&c!=='\u2014';});
 let sub=0,out=0,over=0;covRows.forEach(r=>{const st=covStatus(r);if(st==='SUBMITTED')sub++;else if(st==='OVERDUE')over++;else out++;});
 cards.innerHTML='<div class="stat"><div class="n">'+covRows.length+'</div><div class="l">changeovers today</div></div>'+
@@ -188,6 +185,19 @@ cards.innerHTML='<div class="stat"><div class="n">'+covRows.length+'</div><div c
 '<div class="stat amber"><div class="n">'+out+'</div><div class="l">outstanding</div></div>'+
 '<div class="stat red"><div class="n">'+over+'</div><div class="l">overdue</div></div>';
 renderCovList();wireCovSeg();}
+async function loadCov(){const box=document.getElementById('cov-chase');const cards=document.getElementById('cov-cards');
+const rb=document.getElementById('cov-refresh');if(rb)rb.onclick=covRefresh;
+if(!CONFIG.CHANGEOVER_CSV){cards.innerHTML='';box.innerHTML='<div class="hint">Add your Changeover Tracker published-CSV URL in CONFIG (top of this file) to show changeover form tracking.</div>';return;}
+const data=await fetchCSV(CONFIG.CHANGEOVER_CSV);
+if(!data||data.error){box.innerHTML='<div class="hint">Could not load: '+(data&&data.error?data.error:'')+'</div>';return;}
+applyCovRows(data);}
+async function covRefresh(){const btn=document.getElementById('cov-refresh'),msg=document.getElementById('cov-refresh-msg');
+if(!CONFIG.TASKS_API||!AUTH.token){toast('Please sign in to refresh');return;}
+if(btn){btn.disabled=true;btn.textContent='\u21bb Updating\u2026';}if(msg)msg.textContent='Rebuilding from the latest form responses\u2026';
+try{const j=await apiPost({token:AUTH.token,action:'reconcile'});
+if(Array.isArray(j.rows))applyCovRows(j.rows);if(msg)msg.textContent='Updated just now \u2713';}
+catch(e){if(msg)msg.textContent='Error: '+(e.message||'failed');}
+finally{if(btn){btn.disabled=false;btn.textContent='\u21bb Refresh now';}setTimeout(()=>{if(msg&&msg.textContent.indexOf('Error')<0)msg.textContent='';},4000);}}
 function renderCovList(){const box=document.getElementById('cov-chase');if(!covRows)return;
 const so=document.getElementById('cseg-out'),sr=document.getElementById('cseg-rec');if(so)so.classList.toggle('active',covTab==='out');if(sr)sr.classList.toggle('active',covTab==='rec');
 if(covTab==='rec'){
@@ -580,6 +590,6 @@ document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();
 document.getElementById('mtmpl').onclick=saveTemplate;}
 async function saveTemplate(){const el=document.getElementById('tmpl_text');const t=el?el.value:'';try{requireEdit();const j=await apiPost({token:AUTH.token,action:'payment_template',template:t});PAY.template=(j.template!==undefined)?j.template:t;closeEditor();renderPayments();toast('Template saved');}catch(e){toast('Error: '+e.message);}}
 document.getElementById('pay-filter').addEventListener('change',e=>{payFilter=e.target.value;renderPayments();});
-document.getElementById('ver').textContent='site v17 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
+document.getElementById('ver').textContent='site v18 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
 render();loadLog();loadTasks();initAuth();setInterval(()=>{loadLog();},120000);setInterval(render,60000);
 </script></body></html>
