@@ -104,7 +104,7 @@ body.locked{overflow:hidden}
 <div style="display:flex;gap:10px;align-items:center"><button class="btn pri" id="lv_submit">Add leave request</button><span class="count" id="lv_msg"></span></div></div>
 <div id="leave-cards" class="cards" style="margin-top:14px"></div>
 <div id="leave-people"></div>
-<div class="manage-head" style="margin-top:10px"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select class="filter" id="lv_fperson"><option value="">All people</option></select><span class="count">From</span><input class="filter" id="lv_ffrom" type="date" style="width:auto"><span class="count">to</span><input class="filter" id="lv_fto" type="date" style="width:auto"><button class="btn sm" id="lv_fclear">Clear filters</button></div><span id="lv_admin"></span></div>
+<div class="manage-head" id="lv-filterbar" style="margin-top:10px"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select class="filter" id="lv_fperson"><option value="">All people</option></select><span class="count">From</span><input class="filter" id="lv_ffrom" type="date" style="width:auto"><span class="count">to</span><input class="filter" id="lv_fto" type="date" style="width:auto"><button class="btn sm" id="lv_fclear">Clear filters</button></div><span id="lv_admin"></span></div>
 <div style="overflow:auto"><div id="leave-list"><div class="spin">Loading…</div></div></div></section>
 <section id="v-log" class="hide"><h2>Activity log — what's been actioned</h2><div class="count">Every ✅ reaction in #guest-ops-dashboard, newest first.</div><div id="logbox"><div class="spin">Loading…</div></div></section>
 <section id="v-cov" class="hide"><h2>Changeover forms — today</h2><div class="count">Cabins with a changeover today vs cleaner feedback forms received. Overdue after 3pm UK.</div><div id="cov-cards" class="cards"></div><div class="manage-head" style="margin-top:10px"><div class="seg"><button class="segbtn active" id="cseg-out">Outstanding</button><button class="segbtn" id="cseg-rec">Received</button></div></div><div id="cov-chase"><div class="spin">Loading…</div></div></section>
@@ -427,14 +427,23 @@ list.innerHTML=h;
 const sdt=document.getElementById('sd-toggle');if(sdt)sdt.onclick=()=>{const el=document.getElementById('sd-list');if(!el)return;const wasHidden=el.classList.contains('hide');el.classList.toggle('hide');sdt.textContent=wasHidden?'Hide':'Show '+BOOK.same_day.length;};}
 /* ---- Leave requests ---- */
 let LEAVE={records:[]},leaveWired=false;
-async function loadLeave(){const list=document.getElementById('leave-list'),cards=document.getElementById('leave-cards');
-if(!CONFIG.TASKS_API){cards.innerHTML='';list.innerHTML='<div class="hint">Connect the Tasks API to use Leave (see TASKS_SETUP.md).</div>';return;}
-if(!AUTH.token){cards.innerHTML='';list.innerHTML='<div class="hint">Please sign in to view and add leave.</div>';return;}
+function leaveLogHide_(){const c=document.getElementById('leave-cards'),p=document.getElementById('leave-people'),b=document.getElementById('lv-filterbar');if(c)c.innerHTML='';if(p)p.innerHTML='';if(b)b.style.display='none';}
+async function loadLeave(){const list=document.getElementById('leave-list');
+if(!CONFIG.TASKS_API){leaveLogHide_();list.innerHTML='<div class="hint">Connect the Tasks API to use Leave (see TASKS_SETUP.md).</div>';return;}
+if(!AUTH.token){leaveLogHide_();list.innerHTML='<div class="hint">Please sign in to add or view leave.</div>';return;}
 wireLeave();
-try{const sep=CONFIG.TASKS_API.indexOf('?')>=0?'&':'?';const r=await fetch(CONFIG.TASKS_API+sep+'action=leave&token='+encodeURIComponent(AUTH.token||'')+'&_='+Date.now(),{cache:'no-store'});const j=await r.json();
+if(!AUTH.adminToken){leaveLogHide_();renderLeaveLock();return;}   // log is admin-only; the form above stays open
+const b=document.getElementById('lv-filterbar');if(b)b.style.display='';
+try{const sep=CONFIG.TASKS_API.indexOf('?')>=0?'&':'?';const r=await fetch(CONFIG.TASKS_API+sep+'action=leave&token='+encodeURIComponent(AUTH.adminToken||'')+'&_='+Date.now(),{cache:'no-store'});const j=await r.json();
 if(j&&j.ok){LEAVE.records=j.records||[];renderLeave();}
+else if(j&&/admin code/i.test(j.error||'')){clearAdminToken();leaveLogHide_();renderLeaveLock();}
 else{list.innerHTML='<div class="hint">Could not load leave'+(j&&j.error?': '+escHtml(j.error):'')+'</div>';}}
 catch(e){list.innerHTML='<div class="hint">Could not load leave.</div>';}}
+function renderLeaveLock(){const list=document.getElementById('leave-list');
+list.innerHTML='<div class="res-group" style="max-width:430px"><h3>🔒 Leave log is locked</h3><div class="count" style="margin:6px 0 10px">Anyone can add a request in the form above. Viewing the full leave log needs the admin code.</div><div class="field"><input id="lv_code" type="password" placeholder="Admin code" autocomplete="off"></div><div style="display:flex;gap:8px;align-items:center"><button class="btn pri" id="lv_unlock">Unlock log</button><span class="count" id="lv_code_err"></span></div></div>';
+const u=document.getElementById('lv_unlock');if(u)u.onclick=unlockLeave;const c=document.getElementById('lv_code');if(c){c.addEventListener('keydown',e=>{if(e.key==='Enter')unlockLeave();});if(c.focus)c.focus();}}
+async function unlockLeave(){const el=document.getElementById('lv_code'),err=document.getElementById('lv_code_err');const code=el?el.value:'';if(err)err.textContent='Checking…';
+try{const j=await apiPost({action:'unlock_admin',token:AUTH.token,code:code});if(j.adminToken){setAdminToken(j.adminToken);if(err)err.textContent='';loadLeave();}else{if(err)err.textContent='Incorrect code';}}catch(e){if(err)err.textContent=e.message||'Incorrect code';}}
 function wireLeave(){if(leaveWired)return;leaveWired=true;const $=id=>document.getElementById(id);
 function calcDays(){const s=$('lv_start').value,e=$('lv_end').value||s;if(!s)return;const a=new Date(s+'T00:00:00'),b=new Date(e+'T00:00:00');if(isNaN(a)||isNaN(b))return;let d=Math.round((b-a)/86400000)+1;if(d<1)d=1;$('lv_days').value=d;}
 $('lv_start').addEventListener('change',()=>{if(!$('lv_end').value)$('lv_end').value=$('lv_start').value;calcDays();});
@@ -571,6 +580,6 @@ document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();
 document.getElementById('mtmpl').onclick=saveTemplate;}
 async function saveTemplate(){const el=document.getElementById('tmpl_text');const t=el?el.value:'';try{requireEdit();const j=await apiPost({token:AUTH.token,action:'payment_template',template:t});PAY.template=(j.template!==undefined)?j.template:t;closeEditor();renderPayments();toast('Template saved');}catch(e){toast('Error: '+e.message);}}
 document.getElementById('pay-filter').addEventListener('change',e=>{payFilter=e.target.value;renderPayments();});
-document.getElementById('ver').textContent='site v16 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
+document.getElementById('ver').textContent='site v17 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
 render();loadLog();loadTasks();initAuth();setInterval(()=>{loadLog();},120000);setInterval(render,60000);
 </script></body></html>
