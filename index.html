@@ -334,12 +334,13 @@ root.innerHTML='<div class="modal-bg" id="mbg"><div class="modal"><h3>'+(isNew?'
 '<div class="field"><label>What good looks like</label><textarea id="f_good">'+escHtml(t.what_good_looks_like||'')+'</textarea></div>'+
 '<div class="field"><label>Template message <span class="count">(copyable — shown with a 📋 Copy button)</span></label><textarea id="f_tmpl" placeholder="Canned message the team can copy &amp; send">'+escHtml(t.template_msg||'')+'</textarea></div>'+
 '<div class="field"><label>Slack completion keyword <span class="count">(match_key — optional, lowercase phrase in the Slack reminder)</span></label><input id="f_mk" value="'+esc(t.match_key||'')+'"></div>'+
+'<div style="margin:16px 0 2px;font-weight:700;color:var(--green-d);border-top:1px solid var(--line);padding-top:12px">🔔 Slack reminder</div><div class="count" style="margin-bottom:8px">Turn the reminder on, choose when it fires, and edit exactly what it says in Slack in the message box below.</div>'+
 '<div class="frow" style="align-items:flex-end"><div class="field"><label>Slack reminder</label><select id="f_rem"><option value=""'+(remOn(t)?'':' selected')+'>Off</option><option value="yes"'+(remOn(t)?' selected':'')+'>On — post to Slack</option></select></div>'+
 '<div class="field"><label>Reminder time <span class="count">(blank = use timing)</span></label><input id="f_remtime" value="'+esc(t.reminder_time||'')+'" placeholder="e.g. 09:30, 10pm, 5am"></div>'+
 '<div class="field"><label>Days <span class="count">(blank = every day)</span></label><input id="f_remdays" value="'+esc(t.reminder_days||'')+'" placeholder="e.g. Mon,Wed,Fri"></div></div>'+
-'<div class="field"><label>Reminder message <span class="count">(what gets posted to Slack — blank = default; {name} and {time} are filled in)</span></label><textarea id="f_remmsg" placeholder="🔔 {name} — due {time} UK. React ✅ when done.">'+escHtml(t.reminder_msg||'')+'</textarea></div>'+
+'<div class="field"><label style="font-weight:700;color:var(--green-d)">✏️ Reminder message — edit the exact text sent to Slack <span class="count" style="font-weight:400">(blank = default wording; {name} and {time} are auto-filled)</span></label><textarea id="f_remmsg" placeholder="🔔 {name} — due {time} UK. React ✅ when done.">'+escHtml(t.reminder_msg||'')+'</textarea></div>'+
 '<div class="field"><label>Chase / follow-up time(s) <span class="count">(the reminder that goes off if it is NOT ✅ done yet; comma-separate several, e.g. 16:00,6pm)</span></label><input id="f_chase" value="'+esc(t.chase_time||'')+'" placeholder="e.g. 16:00 or 6pm"></div>'+
-'<div class="field"><label>Chase message <span class="count">(posted at the chase time only if still not done — blank = default)</span></label><textarea id="f_chasemsg" placeholder="⏰ Still outstanding: {name} — please action & react ✅.">'+escHtml(t.chase_msg||'')+'</textarea></div>'+
+'<div class="field"><label style="font-weight:700;color:var(--green-d)">✏️ Follow-up (chase) message — edit the text sent if it is still not done <span class="count" style="font-weight:400">(posted at the chase time only if not ✅ done yet; blank = default)</span></label><textarea id="f_chasemsg" placeholder="⏰ Still outstanding: {name} — please action & react ✅.">'+escHtml(t.chase_msg||'')+'</textarea></div>'+
 '<div class="modal-actions"><button class="btn danger" id="mcancel">Cancel</button><button class="btn pri" id="msave">'+(isNew?'Create task':'Save changes')+'</button></div>'+
 '</div></div>';
 document.getElementById('mcancel').onclick=closeEditor;
@@ -511,6 +512,6 @@ document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();
 document.getElementById('mtmpl').onclick=saveTemplate;}
 async function saveTemplate(){const el=document.getElementById('tmpl_text');const t=el?el.value:'';try{requireEdit();const j=await apiPost({token:AUTH.token,action:'payment_template',template:t});PAY.template=(j.template!==undefined)?j.template:t;closeEditor();renderPayments();toast('Template saved');}catch(e){toast('Error: '+e.message);}}
 document.getElementById('pay-filter').addEventListener('change',e=>{payFilter=e.target.value;renderPayments();});
-document.getElementById('ver').textContent='site v14 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
+document.getElementById('ver').textContent='site v15 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
 render();loadLog();loadTasks();initAuth();setInterval(()=>{loadLog();},120000);setInterval(render,60000);
 </script></body></html>
