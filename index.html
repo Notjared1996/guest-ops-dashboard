@@ -89,13 +89,23 @@ body.locked{overflow:hidden}
 <header><div><div class="t">Unplugged · Guest Ops Live Dashboard</div><div class="sub">Today's rhythm · react ✅ in Slack to complete</div></div>
 <div class="authbox"><span class="who" id="who"></span><button class="btn sm" id="signin">Sign in</button><button class="btn sm hide" id="signout">Sign out</button>
 <div class="clock"><div class="time" id="clk">--:--</div><div class="day" id="dow">UK</div></div></div></header>
-<nav><button data-v="today" class="active">Today</button><button data-v="cov">Changeover forms</button><button data-v="pay">Payments</button><button data-v="book">Booking alerts</button><button data-v="blk">Blocks</button><button data-v="log">Activity log</button><button data-v="history">History</button><button data-v="res">Resources</button><button data-v="all">All tasks</button><button data-v="manage">Manage</button></nav>
+<nav><button data-v="today" class="active">Today</button><button data-v="cov">Changeover forms</button><button data-v="pay">Payments</button><button data-v="book">Booking alerts</button><button data-v="blk">Blocks</button><button data-v="leave">Leave</button><button data-v="log">Activity log</button><button data-v="history">History</button><button data-v="res">Resources</button><button data-v="all">All tasks</button><button data-v="manage">Manage</button></nav>
 <main>
 <section id="v-today"><h2 id="today-h">Today</h2><div class="bar"><span id="prog"></span></div><div class="count" id="progc"></div>
 <div id="due"></div><h2>Later today</h2><div id="later"></div><h2>Ongoing</h2><div id="ongoing"></div></section>
 <section id="v-pay" class="hide"><h2>Payments to chase</h2><div class="count">Deposit-only / part-paid bookings from the Payments Due sheet. Once a balance clears it leaves the sheet and drops off here automatically.</div><div id="pay-cards" class="cards"></div><div class="manage-head" style="margin-top:8px"><select class="filter" id="pay-filter"><option value="">All</option><option value="review">Needs review</option><option value="followup">Needs follow-up</option><option value="plan">On payment plan</option></select><span id="pay-admin"></span></div><div id="pay-list"><div class="spin">Loading…</div></div></section>
 <section id="v-book" class="hide"><h2>Booking notifications</h2><div class="count">Watches the live Bookings feed for clashes — two stays in the same cabin whose dates collide. Covers current &amp; upcoming bookings (checkout today or later). Refreshes each time you open this tab.</div><div id="book-cards" class="cards"></div><div id="book-list"><div class="spin">Loading…</div></div></section>
 <section id="v-blk" class="hide"><h2>Blocked cabins</h2><div class="count">Tracks BLOCKED entries in the Bookings sheet — cabins held for maintenance, holds, shoots, etc. Flags blocks that clash with a real booking, and blocks that look forgotten. Covers ~2 weeks back through ~1 year ahead. Auto-refreshes around 9am &amp; 4pm UK (loads instantly from the last check).</div><div id="blk-cards" class="cards"></div><div id="blk-list"><div class="spin">Loading…</div></div></section>
+<section id="v-leave" class="hide"><h2>Leave requests</h2><div class="count">Log sick / last-minute leave — who, which dates, the reason, and the manager who confirmed it. Saved to the Guest Ops database.</div>
+<div class="res-group" style="max-width:660px;margin-top:8px"><h3>➕ New leave request</h3>
+<div class="frow"><div class="field"><label>Name (person on leave)</label><input id="lv_name" autocomplete="off"></div><div class="field"><label>Manager who confirmed it</label><input id="lv_appr" autocomplete="off" placeholder="who approved the leave"></div></div>
+<div class="frow"><div class="field"><label>Start date</label><input id="lv_start" type="date"></div><div class="field"><label>End date <span class="count">(same as start = 1 day)</span></label><input id="lv_end" type="date"></div><div class="field"><label>Days <span class="count">(auto — editable for half days)</span></label><input id="lv_days" type="number" step="0.5" min="0"></div></div>
+<div class="field"><label>Reason</label><input id="lv_reason" placeholder="e.g. Sick, family emergency, appointment…"></div>
+<div style="display:flex;gap:10px;align-items:center"><button class="btn pri" id="lv_submit">Add leave request</button><span class="count" id="lv_msg"></span></div></div>
+<div id="leave-cards" class="cards" style="margin-top:14px"></div>
+<div id="leave-people"></div>
+<div class="manage-head" style="margin-top:10px"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select class="filter" id="lv_fperson"><option value="">All people</option></select><span class="count">From</span><input class="filter" id="lv_ffrom" type="date" style="width:auto"><span class="count">to</span><input class="filter" id="lv_fto" type="date" style="width:auto"><button class="btn sm" id="lv_fclear">Clear filters</button></div><span id="lv_admin"></span></div>
+<div style="overflow:auto"><div id="leave-list"><div class="spin">Loading…</div></div></div></section>
 <section id="v-log" class="hide"><h2>Activity log — what's been actioned</h2><div class="count">Every ✅ reaction in #guest-ops-dashboard, newest first.</div><div id="logbox"><div class="spin">Loading…</div></div></section>
 <section id="v-cov" class="hide"><h2>Changeover forms — today</h2><div class="count">Cabins with a changeover today vs cleaner feedback forms received. Overdue after 3pm UK.</div><div id="cov-cards" class="cards"></div><div class="manage-head" style="margin-top:10px"><div class="seg"><button class="segbtn active" id="cseg-out">Outstanding</button><button class="segbtn" id="cseg-rec">Received</button></div></div><div id="cov-chase"><div class="spin">Loading…</div></div></section>
 <section id="v-history" class="hide"><h2>History &amp; trends</h2><div class="count">Built from the ✅ log since tracking began (today is excluded until it's a full day). Counts the ✅-tracked reminder tasks.</div><div id="hist-cards" class="cards"></div><h2>Most-missed tasks</h2><div id="hist-box"><div class="spin">Loading…</div></div><h2>By day of week</h2><div id="hist-dow"></div><h2>Recent days</h2><div id="hist-recent"></div></section>
@@ -216,7 +226,7 @@ var ranked=trackable.map(function(t){return {name:t.task_name,miss:missByTask[t.
 var h='<table><tr><th>Task</th><th>Missed</th><th>Expected</th><th>Miss rate</th></tr>';ranked.forEach(function(x){var mr=x.exp?Math.round(x.miss/x.exp*100):0;h+='<tr><td>'+x.name+'</td><td style="font-weight:700;color:'+(x.miss>0?'#b5442e':'#2f8f5b')+'">'+x.miss+'</td><td>'+x.exp+'</td><td>'+mr+'%</td></tr>';});h+='</table>';box.innerHTML=h;
 var dh='<table><tr><th>Day</th><th>Completed</th></tr>';[1,2,3,4,5,6,0].forEach(function(i){if(dowExp[i]===0)return;var p=Math.round(dowDone[i]/dowExp[i]*100);dh+='<tr><td>'+DOW[i]+'</td><td>'+p+'% <span class="count">('+dowDone[i]+'/'+dowExp[i]+')</span></td></tr>';});dh+='</table>';dowB.innerHTML=dh;
 var rh='<table><tr><th>Date</th><th>Done</th><th>Missed tasks</th></tr>';recent.slice(-14).reverse().forEach(function(r){rh+='<tr><td>'+r.dow+' '+r.date+'</td><td>'+r.done+'/'+r.exp+'</td><td style="color:'+(r.missed.length?'#b5442e':'#2f8f5b')+'">'+(r.missed.length?r.missed.join(', '):'— all done')+'</td></tr>';});rh+='</table>';recB.innerHTML=rh;}
-document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['today','cov','pay','book','blk','log','history','res','all','manage'].forEach(v=>document.getElementById('v-'+v).classList.add('hide'));document.getElementById('v-'+b.dataset.v).classList.remove('hide');const v=b.dataset.v;if(v==='cov')loadCov();if(v==='pay')loadPayments();if(v==='book')loadBookings();if(v==='blk')loadBlocks();if(v==='log')renderLog();if(v==='history')loadHistory();if(v==='res')renderRes();if(v==='all')renderAll();if(v==='manage')ensureManageAccess();}));
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['today','cov','pay','book','blk','leave','log','history','res','all','manage'].forEach(v=>document.getElementById('v-'+v).classList.add('hide'));document.getElementById('v-'+b.dataset.v).classList.remove('hide');const v=b.dataset.v;if(v==='cov')loadCov();if(v==='pay')loadPayments();if(v==='book')loadBookings();if(v==='blk')loadBlocks();if(v==='leave')loadLeave();if(v==='log')renderLog();if(v==='history')loadHistory();if(v==='res')renderRes();if(v==='all')renderAll();if(v==='manage')ensureManageAccess();}));
 /* ===== Task manager: live load, Google Sign-In, create/edit/delete ===== */
 const CATS=['Handover','Dashboard','Guest Comms','Changeover','Finance','Quality','Knowledge','Reporting','Reporting'];
 const FREQS=['Daily','Daily incl. weekends','Daily (Mon backlog)','Continuous','Daily until closed','Per event','Per checkout','Weekly','Weekly (Mon)','Monthly'];
@@ -415,6 +425,55 @@ if(BOOK.same_day.length){h+='<h2 style="margin-top:16px">🔁 Same-day changeove
 if(BOOK.generated_at)h+='<div class="count" style="margin-top:12px">Checked '+escHtml(BOOK.generated_at)+' UK · reopen the tab to refresh.</div>';
 list.innerHTML=h;
 const sdt=document.getElementById('sd-toggle');if(sdt)sdt.onclick=()=>{const el=document.getElementById('sd-list');if(!el)return;const wasHidden=el.classList.contains('hide');el.classList.toggle('hide');sdt.textContent=wasHidden?'Hide':'Show '+BOOK.same_day.length;};}
+/* ---- Leave requests ---- */
+let LEAVE={records:[]},leaveWired=false;
+async function loadLeave(){const list=document.getElementById('leave-list'),cards=document.getElementById('leave-cards');
+if(!CONFIG.TASKS_API){cards.innerHTML='';list.innerHTML='<div class="hint">Connect the Tasks API to use Leave (see TASKS_SETUP.md).</div>';return;}
+if(!AUTH.token){cards.innerHTML='';list.innerHTML='<div class="hint">Please sign in to view and add leave.</div>';return;}
+wireLeave();
+try{const sep=CONFIG.TASKS_API.indexOf('?')>=0?'&':'?';const r=await fetch(CONFIG.TASKS_API+sep+'action=leave&token='+encodeURIComponent(AUTH.token||'')+'&_='+Date.now(),{cache:'no-store'});const j=await r.json();
+if(j&&j.ok){LEAVE.records=j.records||[];renderLeave();}
+else{list.innerHTML='<div class="hint">Could not load leave'+(j&&j.error?': '+escHtml(j.error):'')+'</div>';}}
+catch(e){list.innerHTML='<div class="hint">Could not load leave.</div>';}}
+function wireLeave(){if(leaveWired)return;leaveWired=true;const $=id=>document.getElementById(id);
+function calcDays(){const s=$('lv_start').value,e=$('lv_end').value||s;if(!s)return;const a=new Date(s+'T00:00:00'),b=new Date(e+'T00:00:00');if(isNaN(a)||isNaN(b))return;let d=Math.round((b-a)/86400000)+1;if(d<1)d=1;$('lv_days').value=d;}
+$('lv_start').addEventListener('change',()=>{if(!$('lv_end').value)$('lv_end').value=$('lv_start').value;calcDays();});
+$('lv_end').addEventListener('change',calcDays);
+$('lv_submit').addEventListener('click',submitLeave);
+['lv_fperson','lv_ffrom','lv_fto'].forEach(id=>$(id).addEventListener('change',renderLeave));
+$('lv_fclear').addEventListener('click',()=>{$('lv_fperson').value='';$('lv_ffrom').value='';$('lv_fto').value='';renderLeave();});}
+async function submitLeave(){const $=id=>document.getElementById(id),msg=$('lv_msg');
+const name=$('lv_name').value.trim(),start=$('lv_start').value,end=$('lv_end').value||start,reason=$('lv_reason').value.trim(),appr=$('lv_appr').value.trim(),days=$('lv_days').value;
+if(!name){msg.textContent='Enter a name.';return;}if(!start){msg.textContent='Pick a start date.';return;}
+if(!reason){msg.textContent='Add a reason.';return;}if(!appr){msg.textContent='Add the manager who confirmed it.';return;}
+msg.textContent='Saving…';
+try{const j=await apiPost({token:AUTH.token,action:'leave_add',name:name,start_date:start,end_date:end,days:days,reason:reason,approved_by:appr});
+if(Array.isArray(j.records))LEAVE.records=j.records;msg.textContent='Added ✓';
+['lv_name','lv_start','lv_end','lv_days','lv_reason','lv_appr'].forEach(id=>$(id).value='');
+renderLeave();setTimeout(()=>{msg.textContent='';},2500);}catch(e){msg.textContent='Error: '+(e.message||'failed');}}
+function leaveFiltered(){const person=(document.getElementById('lv_fperson').value||'').toLowerCase(),from=document.getElementById('lv_ffrom').value,to=document.getElementById('lv_fto').value;
+return LEAVE.records.filter(r=>{if(person&&(r.name||'').toLowerCase()!==person)return false;if(from&&(r.end_date||r.start_date||'')<from)return false;if(to&&(r.start_date||'')>to)return false;return true;});}
+function fmtLeaveDate(s){const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?(m[3]+'/'+m[2]+'/'+m[1]):(s||'');}
+function renderLeave(){const cards=document.getElementById('leave-cards'),list=document.getElementById('leave-list'),people=document.getElementById('leave-people'),admin=document.getElementById('lv_admin'),sel=document.getElementById('lv_fperson');
+const names=[...new Set(LEAVE.records.map(r=>r.name).filter(Boolean))].sort((a,b)=>a.toLowerCase()<b.toLowerCase()?-1:1),cur=sel.value;
+sel.innerHTML='<option value="">All people</option>'+names.map(n=>'<option'+(n===cur?' selected':'')+'>'+escHtml(n)+'</option>').join('');
+const rows=leaveFiltered(),totalDays=rows.reduce((s,r)=>s+(+r.days||0),0),ppl=new Set(rows.map(r=>r.name)).size;
+cards.innerHTML='<div class="stat"><div class="n">'+rows.length+'</div><div class="l">requests</div></div>'+
+'<div class="stat amber"><div class="n">'+(Math.round(totalDays*10)/10)+'</div><div class="l">total days</div></div>'+
+'<div class="stat"><div class="n">'+ppl+'</div><div class="l">people</div></div>';
+const byP={};rows.forEach(r=>{byP[r.name]=(byP[r.name]||0)+(+r.days||0);});const pk=Object.keys(byP).sort((a,b)=>byP[b]-byP[a]);
+people.innerHTML=pk.length?('<div class="count" style="margin:2px 0 8px">Days per person: '+pk.map(n=>'<b>'+escHtml(n)+'</b> '+(Math.round(byP[n]*10)/10)).join(' · ')+'</div>'):'';
+admin.innerHTML=AUTH.adminToken?'':'<span class="count">Unlock Manage (top-right → Manage) to delete entries.</span>';
+if(!rows.length){list.innerHTML='<div class="hint">No leave logged'+(LEAVE.records.length?' for this filter.':' yet — add the first one above.')+'</div>';return;}
+const sorted=rows.slice().sort((a,b)=>(a.start_date<b.start_date?1:-1)),canDel=!!AUTH.adminToken;
+let h='<table><tr><th>Name</th><th>Dates</th><th>Days</th><th>Reason</th><th>Confirmed by</th><th>Logged by</th><th>When</th>'+(canDel?'<th></th>':'')+'</tr>';
+sorted.forEach(r=>{const dates=r.start_date===r.end_date?fmtLeaveDate(r.start_date):(fmtLeaveDate(r.start_date)+' → '+fmtLeaveDate(r.end_date));
+h+='<tr><td><b>'+escHtml(r.name)+'</b></td><td>'+escHtml(dates)+'</td><td>'+(Math.round((+r.days||0)*10)/10)+'</td><td>'+escHtml(r.reason||'')+'</td><td>'+escHtml(r.approved_by||'')+'</td><td>'+escHtml(r.submitted_by||'')+'</td><td class="count">'+escHtml(r.created_at||'')+'</td>'+(canDel?'<td><button class="btn sm danger" data-lvdel="'+esc(r.id)+'">Del</button></td>':'')+'</tr>';});
+h+='<tr><td colspan="2" style="text-align:right;font-weight:700">Total</td><td style="font-weight:700">'+(Math.round(totalDays*10)/10)+'</td><td colspan="'+(canDel?4:3)+'"></td></tr></table>';
+list.innerHTML=h;
+if(canDel)list.querySelectorAll('[data-lvdel]').forEach(b=>b.onclick=()=>delLeave(b.getAttribute('data-lvdel')));}
+async function delLeave(id){if(!AUTH.adminToken){toast('Unlock Manage first');return;}const rec=LEAVE.records.filter(r=>r.id===id)[0];if(!confirm('Delete leave for '+((rec&&rec.name)||'this entry')+'?'))return;
+try{const j=await apiPost({token:AUTH.adminToken,action:'leave_delete',id:id});if(Array.isArray(j.records))LEAVE.records=j.records;renderLeave();toast('Deleted');}catch(e){toast('Error: '+e.message);}}
 /* ---- Blocked-cabin monitor ---- */
 let BLK={collisions:[],active:[],active_total:0,review:[],formula_gaps:[],formula_meta:{},counts:{},generated_at:''};
 async function loadBlocks(){const list=document.getElementById('blk-list'),cards=document.getElementById('blk-cards');
@@ -512,6 +571,6 @@ document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();
 document.getElementById('mtmpl').onclick=saveTemplate;}
 async function saveTemplate(){const el=document.getElementById('tmpl_text');const t=el?el.value:'';try{requireEdit();const j=await apiPost({token:AUTH.token,action:'payment_template',template:t});PAY.template=(j.template!==undefined)?j.template:t;closeEditor();renderPayments();toast('Template saved');}catch(e){toast('Error: '+e.message);}}
 document.getElementById('pay-filter').addEventListener('change',e=>{payFilter=e.target.value;renderPayments();});
-document.getElementById('ver').textContent='site v15 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
+document.getElementById('ver').textContent='site v16 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
 render();loadLog();loadTasks();initAuth();setInterval(()=>{loadLog();},120000);setInterval(render,60000);
 </script></body></html>
