@@ -89,13 +89,14 @@ body.locked{overflow:hidden}
 <header><div><div class="t">Unplugged · Guest Ops Live Dashboard</div><div class="sub">Today's rhythm · react ✅ in Slack to complete</div></div>
 <div class="authbox"><span class="who" id="who"></span><button class="btn sm" id="signin">Sign in</button><button class="btn sm hide" id="signout">Sign out</button>
 <div class="clock"><div class="time" id="clk">--:--</div><div class="day" id="dow">UK</div></div></div></header>
-<nav><button data-v="today" class="active">Today</button><button data-v="cov">Changeover forms</button><button data-v="pay">Payments</button><button data-v="book">Booking alerts</button><button data-v="blk">Blocks</button><button data-v="leave">Leave</button><button data-v="log">Activity log</button><button data-v="history">History</button><button data-v="res">Resources</button><button data-v="all">All tasks</button><button data-v="manage">Manage</button></nav>
+<nav><button data-v="today" class="active">Today</button><button data-v="cov">Changeover forms</button><button data-v="pay">Payments</button><button data-v="book">Booking alerts</button><button data-v="blk">Blocks</button><button data-v="fix">Fix-it</button><button data-v="leave">Leave</button><button data-v="log">Activity log</button><button data-v="history">History</button><button data-v="res">Resources</button><button data-v="all">All tasks</button><button data-v="manage">Manage</button></nav>
 <main>
 <section id="v-today"><h2 id="today-h">Today</h2><div class="bar"><span id="prog"></span></div><div class="count" id="progc"></div>
 <div id="due"></div><h2>Later today</h2><div id="later"></div><h2>Ongoing</h2><div id="ongoing"></div></section>
 <section id="v-pay" class="hide"><h2>Payments to chase</h2><div class="count">Deposit-only / part-paid bookings from the Payments Due sheet. Once a balance clears it leaves the sheet and drops off here automatically.</div><div id="pay-cards" class="cards"></div><div class="manage-head" style="margin-top:8px"><select class="filter" id="pay-filter"><option value="">All</option><option value="review">Needs review</option><option value="followup">Needs follow-up</option><option value="plan">On payment plan</option></select><span id="pay-admin"></span></div><div id="pay-list"><div class="spin">Loading…</div></div></section>
 <section id="v-book" class="hide"><h2>Booking notifications</h2><div class="count">Watches the live Bookings feed for clashes — two stays in the same cabin whose dates collide. Covers current &amp; upcoming bookings (checkout today or later). Refreshes each time you open this tab.</div><div id="book-cards" class="cards"></div><div id="book-list"><div class="spin">Loading…</div></div></section>
 <section id="v-blk" class="hide"><h2>Blocked cabins</h2><div class="count">Tracks BLOCKED entries in the Bookings sheet — cabins held for maintenance, holds, shoots, etc. Flags blocks that clash with a real booking, and blocks that look forgotten. Covers ~2 weeks back through ~1 year ahead. Auto-refreshes around 9am &amp; 4pm UK (loads instantly from the last check).</div><div id="blk-cards" class="cards"></div><div id="blk-list"><div class="spin">Loading…</div></div></section>
+<section id="v-fix" class="hide"><h2>Fix-it guide</h2><div class="count">Pick the problem, then work the checks step by step before calling anyone out — ask the guest the safe steps, do the changeover/housekeeper checks, and if it's still not fixed the right person to call is at the end.</div><input id="fix-search" placeholder="Search issues (e.g. fan, boiler, fridge, door)…" style="width:100%;max-width:440px;font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;margin:10px 0"><div id="fix-list"><div class="spin">Loading…</div></div><div id="fix-detail" class="hide"></div></section>
 <section id="v-leave" class="hide"><h2>Leave requests</h2><div class="count">Log sick / last-minute leave — who, which dates, the reason, and the manager who confirmed it. Saved to the Guest Ops database.</div>
 <div class="res-group" style="max-width:660px;margin-top:8px"><h3>➕ New leave request</h3>
 <div class="frow"><div class="field"><label>Name (person on leave)</label><input id="lv_name" autocomplete="off"></div><div class="field"><label>Manager who confirmed it</label><input id="lv_appr" autocomplete="off" placeholder="who approved the leave"></div></div>
@@ -236,7 +237,7 @@ var ranked=trackable.map(function(t){return {name:t.task_name,miss:missByTask[t.
 var h='<table><tr><th>Task</th><th>Missed</th><th>Expected</th><th>Miss rate</th></tr>';ranked.forEach(function(x){var mr=x.exp?Math.round(x.miss/x.exp*100):0;h+='<tr><td>'+x.name+'</td><td style="font-weight:700;color:'+(x.miss>0?'#b5442e':'#2f8f5b')+'">'+x.miss+'</td><td>'+x.exp+'</td><td>'+mr+'%</td></tr>';});h+='</table>';box.innerHTML=h;
 var dh='<table><tr><th>Day</th><th>Completed</th></tr>';[1,2,3,4,5,6,0].forEach(function(i){if(dowExp[i]===0)return;var p=Math.round(dowDone[i]/dowExp[i]*100);dh+='<tr><td>'+DOW[i]+'</td><td>'+p+'% <span class="count">('+dowDone[i]+'/'+dowExp[i]+')</span></td></tr>';});dh+='</table>';dowB.innerHTML=dh;
 var rh='<table><tr><th>Date</th><th>Done</th><th>Missed tasks</th></tr>';recent.slice(-14).reverse().forEach(function(r){rh+='<tr><td>'+r.dow+' '+r.date+'</td><td>'+r.done+'/'+r.exp+'</td><td style="color:'+(r.missed.length?'#b5442e':'#2f8f5b')+'">'+(r.missed.length?r.missed.join(', '):'— all done')+'</td></tr>';});rh+='</table>';recB.innerHTML=rh;}
-document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['today','cov','pay','book','blk','leave','log','history','res','all','manage'].forEach(v=>document.getElementById('v-'+v).classList.add('hide'));document.getElementById('v-'+b.dataset.v).classList.remove('hide');const v=b.dataset.v;if(v==='cov')loadCov();if(v==='pay')loadPayments();if(v==='book')loadBookings();if(v==='blk')loadBlocks();if(v==='leave')loadLeave();if(v==='log')renderLog();if(v==='history')loadHistory();if(v==='res')renderRes();if(v==='all')renderAll();if(v==='manage')ensureManageAccess();}));
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['today','cov','pay','book','blk','fix','leave','log','history','res','all','manage'].forEach(v=>document.getElementById('v-'+v).classList.add('hide'));document.getElementById('v-'+b.dataset.v).classList.remove('hide');const v=b.dataset.v;if(v==='cov')loadCov();if(v==='pay')loadPayments();if(v==='book')loadBookings();if(v==='blk')loadBlocks();if(v==='fix')loadFix();if(v==='leave')loadLeave();if(v==='log')renderLog();if(v==='history')loadHistory();if(v==='res')renderRes();if(v==='all')renderAll();if(v==='manage')ensureManageAccess();}));
 /* ===== Task manager: live load, Google Sign-In, create/edit/delete ===== */
 const CATS=['Handover','Dashboard','Guest Comms','Changeover','Finance','Quality','Knowledge','Reporting','Reporting'];
 const FREQS=['Daily','Daily incl. weekends','Daily (Mon backlog)','Continuous','Daily until closed','Per event','Per checkout','Weekly','Weekly (Mon)','Monthly'];
@@ -435,6 +436,45 @@ if(BOOK.same_day.length){h+='<h2 style="margin-top:16px">🔁 Same-day changeove
 if(BOOK.generated_at)h+='<div class="count" style="margin-top:12px">Checked '+escHtml(BOOK.generated_at)+' UK · reopen the tab to refresh.</div>';
 list.innerHTML=h;
 const sdt=document.getElementById('sd-toggle');if(sdt)sdt.onclick=()=>{const el=document.getElementById('sd-list');if(!el)return;const wasHidden=el.classList.contains('hide');el.classList.toggle('hide');sdt.textContent=wasHidden?'Hide':'Show '+BOOK.same_day.length;};}
+/* ---- Fix-it guide (troubleshooting) ---- */
+let FIX={issues:[]},fixState=null,fixWired=false;
+async function loadFix(){const list=document.getElementById('fix-list'),det=document.getElementById('fix-detail');
+if(!fixWired){fixWired=true;const s=document.getElementById('fix-search');if(s)s.oninput=()=>{if(!fixState)renderFixList();};}
+det.classList.add('hide');list.classList.remove('hide');
+if(!CONFIG.TASKS_API){list.innerHTML='<div class="hint">Connect the Tasks API to use the Fix-it guide.</div>';return;}
+if(!AUTH.token){list.innerHTML='<div class="hint">Please sign in to view the Fix-it guide.</div>';return;}
+try{const sep=CONFIG.TASKS_API.indexOf('?')>=0?'&':'?';const r=await fetch(CONFIG.TASKS_API+sep+'action=troubleshooting&token='+encodeURIComponent(AUTH.token||'')+'&_='+Date.now(),{cache:'no-store'});const j=await r.json();
+if(j&&j.ok){FIX.issues=(j.issues||[]).slice().sort((a,b)=>(b.count||0)-(a.count||0));renderFixList();}
+else{list.innerHTML='<div class="hint">Could not load'+(j&&j.error?': '+escHtml(j.error):'')+'</div>';}}
+catch(e){list.innerHTML='<div class="hint">Could not load the Fix-it guide.</div>';}}
+function fixDot(it){const p=(it.priority||'').toUpperCase();return p.indexOf('RED')>=0?'🔴':p.indexOf('AMBER')>=0?'🟠':'🟢';}
+function renderFixList(){const list=document.getElementById('fix-list'),se=document.getElementById('fix-search');const q=((se&&se.value)||'').toLowerCase().trim();
+if(!FIX.issues.length){list.innerHTML='<div class="hint">No issues loaded yet. An admin needs to run <b>seedTroubleshooting</b> once in Apps Script to fill the Troubleshooting sheet.</div>';return;}
+const items=FIX.issues.map((it,i)=>({it:it,i:i})).filter(x=>!q||x.it.type.toLowerCase().indexOf(q)>=0);
+if(!items.length){list.innerHTML='<div class="count">No issue matches "'+escHtml(q)+'".</div>';return;}
+list.innerHTML='<div class="cards" style="gap:8px">'+items.map(x=>'<button class="btn" style="text-align:left;min-width:230px;flex:1;padding:10px 12px" data-fix="'+x.i+'"><div style="font-weight:700">'+fixDot(x.it)+' '+escHtml(x.it.type)+'</div><div class="count" style="margin-top:2px">'+escHtml(x.it.priority||'')+' · '+(x.it.count||0)+' logged · '+(x.it.co_steps||[]).length+' checks</div></button>').join('')+'</div>';
+list.querySelectorAll('[data-fix]').forEach(b=>b.onclick=()=>openFix(+b.getAttribute('data-fix')));}
+function openFix(i){fixState={idx:i,step:0,mode:'steps'};document.getElementById('fix-list').classList.add('hide');document.getElementById('fix-detail').classList.remove('hide');renderFix();}
+function backFix(){fixState=null;document.getElementById('fix-detail').classList.add('hide');document.getElementById('fix-list').classList.remove('hide');renderFixList();}
+function renderFix(){const d=document.getElementById('fix-detail');const it=FIX.issues[fixState.idx];if(!it){backFix();return;}
+let h='<button class="btn sm" id="fix-back">← All issues</button>';
+h+='<h2 style="margin-top:10px">'+fixDot(it)+' '+escHtml(it.type)+'</h2>';
+h+='<div class="count">'+escHtml(it.priority||'')+(it.urgent?' · <b style="color:var(--red)">Urgent if: '+escHtml(it.urgent)+'</b>':'')+'</div>';
+if(it.red_flags&&it.red_flags.length)h+='<div class="hint" style="border-color:#e6c3ba;background:#fdf3f0;color:#b5442e;margin-top:8px"><b>⚠ Stop &amp; call us now if:</b><ul style="margin:6px 0 0 18px">'+it.red_flags.map(x=>'<li>'+escHtml(x)+'</li>').join('')+'</ul></div>';
+if(it.guest_steps&&it.guest_steps.length)h+='<div class="res-group" style="margin-top:10px"><h3>🧑 Ask the guest — safe steps</h3><ul style="margin:4px 0 8px 18px">'+it.guest_steps.map(x=>'<li>'+escHtml(x)+'</li>').join('')+'</ul>'+(it.templates&&it.templates.guest_first?'<button class="copybtn" data-fixcopy="guest_first">📋 Copy first message to guest</button>':'')+'</div>';
+h+='<div class="res-group" style="margin-top:10px"><h3>🔧 Changeover / housekeeper checks</h3>';
+const steps=it.co_steps||[],n=steps.length,si=fixState.step;
+if(fixState.mode==='steps'&&n){h+='<div class="count" style="margin-bottom:6px">Step '+(si+1)+' of '+n+'</div><div class="card"><div class="badge2">'+(si+1)+'</div><div class="body"><div class="name">'+escHtml(steps[si])+'</div></div></div><div class="links" style="margin-top:8px"><button class="btn pri" id="fix-fixed">✅ That sorted it</button><button class="btn" id="fix-next">'+(si+1>=n?'Still not fixed →':'Done — next check →')+'</button>'+(si>0?'<button class="btn sm" id="fix-prev">← Back a step</button>':'')+'</div>';}
+else if(fixState.mode==='fixed'){h+='<div class="hint" style="border-color:#bfe3cf;background:#eaf5ef"><b>✅ Sorted — nice one.</b> Close it off:</div><div class="links" style="margin-top:8px">'+(it.templates&&it.templates.guest_close?'<button class="copybtn" data-fixcopy="guest_close">📋 Copy \'all sorted\' to guest</button>':'')+(it.templates&&it.templates.co_close?'<button class="copybtn" data-fixcopy="co_close">📋 Copy \'ticket closed\' to CO</button>':'')+'</div><div style="margin-top:8px"><button class="btn sm" id="fix-restart">↺ Start over</button></div>';}
+else{h+='<div class="hint" style="border-color:#e6c3ba;background:#fdf3f0"><b>Still not fixed — call it out.</b></div>';if(it.escalate)h+='<div class="good" style="margin-top:6px">'+escHtml(it.escalate)+'</div>';if(it.contacts&&it.contacts.length)h+='<div style="margin-top:8px"><b>Who to call:</b><ul style="margin:4px 0 0 18px">'+it.contacts.map(x=>'<li>'+escHtml(x)+'</li>').join('')+'</ul></div>';h+='<div class="links" style="margin-top:8px">'+(it.templates&&it.templates.co_first?'<button class="copybtn" data-fixcopy="co_first">📋 Copy the checks message to the CO</button>':'')+'</div><div style="margin-top:8px"><button class="btn sm" id="fix-restart">↺ Start over</button></div>';}
+h+='</div>';
+d.innerHTML=h;
+document.getElementById('fix-back').onclick=backFix;
+const f=document.getElementById('fix-fixed');if(f)f.onclick=()=>{fixState.mode='fixed';renderFix();};
+const nx=document.getElementById('fix-next');if(nx)nx.onclick=()=>{if(fixState.step+1>=n){fixState.mode='escalate';}else{fixState.step++;}renderFix();};
+const pv=document.getElementById('fix-prev');if(pv)pv.onclick=()=>{if(fixState.step>0)fixState.step--;renderFix();};
+const rs=document.getElementById('fix-restart');if(rs)rs.onclick=()=>{fixState.step=0;fixState.mode='steps';renderFix();};
+d.querySelectorAll('[data-fixcopy]').forEach(b=>b.onclick=()=>{const key=b.getAttribute('data-fixcopy');copyText((it.templates||{})[key]||'','Message copied');});}
 /* ---- Leave requests ---- */
 let LEAVE={records:[]},leaveWired=false;
 function leaveLogHide_(){const c=document.getElementById('leave-cards'),p=document.getElementById('leave-people'),b=document.getElementById('lv-filterbar');if(c)c.innerHTML='';if(p)p.innerHTML='';if(b)b.style.display='none';}
@@ -590,6 +630,6 @@ document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeEditor();
 document.getElementById('mtmpl').onclick=saveTemplate;}
 async function saveTemplate(){const el=document.getElementById('tmpl_text');const t=el?el.value:'';try{requireEdit();const j=await apiPost({token:AUTH.token,action:'payment_template',template:t});PAY.template=(j.template!==undefined)?j.template:t;closeEditor();renderPayments();toast('Template saved');}catch(e){toast('Error: '+e.message);}}
 document.getElementById('pay-filter').addEventListener('change',e=>{payFilter=e.target.value;renderPayments();});
-document.getElementById('ver').textContent='site v18 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
+document.getElementById('ver').textContent='site v19 · '+DATA.tasks.length+' tasks · '+DATA.resources.length+' resources';
 render();loadLog();loadTasks();initAuth();setInterval(()=>{loadLog();},120000);setInterval(render,60000);
 </script></body></html>
