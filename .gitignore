@@ -1,0 +1,21 @@
+# Session / review scratch
+REVIEW_NOTES.md
+
+# OS cruft
+Thumbs.db
+ehthumbs.db
+desktop.ini
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Local backups of the single-file app
+index.html.bak
+index.*.backup.html
+
+# clasp (if the Apps Script source is pulled in later)
+.clasprc.json
